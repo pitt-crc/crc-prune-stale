@@ -7,6 +7,7 @@ delegated to a sibling module.
 
 import logging
 import subprocess
+from datetime import datetime, timedelta
 
 from .cli import create_parser
 from .log import configure_logging as configure_logging
@@ -22,11 +23,12 @@ def main() -> None:
     configure_logging()
     args = create_parser().parse_args()
 
+    threshold = datetime.now() - timedelta(days=args.threshold_days)
     logger.info(
         'Starting stale-job cancellation run (dry_run=%s). '
         'Threshold: jobs pending before %s.',
         args.dry_run,
-        args.threshold.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        threshold.strftime('%Y-%m-%d %H:%M:%S UTC'),
     )
 
     try:
@@ -36,7 +38,7 @@ def main() -> None:
         logger.critical('Could not retrieve pending jobs from squeue. Aborting.')
         return
 
-    stale_jobs = [job for job in all_pending if job.submit_time < args.threshold]
+    stale_jobs = [job for job in all_pending if job.submit_time < threshold]
     logger.info('Found %d pending job(s) older than %d days.', len(stale_jobs), args.threshold_days)
 
     cancelled_count = 0
