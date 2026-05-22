@@ -1,8 +1,7 @@
 """The application command line interface."""
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 __all__ = ["create_parser"]
 
@@ -35,7 +34,7 @@ def create_parser(exit_on_error: bool = True) -> ArgumentParser:
         help="log which jobs would be cancelled without actually canceling them.")
 
     pruning.add_argument(
-        "--threshold", metavar="HOURS", type=lambda x: timedelta(hours=x), default=DEFAULT_THRESHOLD,
+        "--threshold", metavar="HOURS", type=lambda x: datetime.now() - timedelta(hours=x), default=DEFAULT_THRESHOLD,
         help="number of hours a job must have been pending before it is cancelled.")
 
     notifications = parser.add_argument_group("notifications", "controls outbound email notifications.")

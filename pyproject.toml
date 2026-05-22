@@ -1,16 +1,15 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 [project]
 name = "prune-stale"
 version = "0.0.0"
 description = "Prune stale Slurm jobs from the job queue."
-authors = [
-    {name = "Pitt-CRCD"}
-]
+authors = [{ name = "Pitt-CRCD" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-]
+dependencies = []
 
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.scripts]
+prune-stale = "prune_stale.__main__:main"

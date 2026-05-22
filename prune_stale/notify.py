@@ -19,7 +19,7 @@ def notify_user(
     email_domain: str,
     threshold_days: int,
 ) -> None:
-    """Send an email notification to the job owner at their @pitt.edu address.
+    """Send an email notification to the job owner.
 
     Args:
         job: The JobRecord of the canceled job.
