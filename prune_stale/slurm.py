@@ -2,6 +2,7 @@
 
 import logging
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 __all__ = [
@@ -15,28 +16,15 @@ SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class JobRecord:
     """A lightweight container for a single Slurm pending job's metadata."""
 
-    def __init__(
-        self,
-        job_id: str,
-        username: str,
-        submit_time: datetime,
-        job_name: str,
-        partition: str,
-    ) -> None:
-        self.job_id = job_id
-        self.username = username
-        self.submit_time = submit_time
-        self.job_name = job_name
-        self.partition = partition
-
-    def __repr__(self) -> str:  # pragma: nocover
-        return (
-            f"JobRecord(job_id={self.job_id!r}, username={self.username!r}, "
-            f"submit_time={self.submit_time.isoformat()!r})"
-        )
+    job_id: str
+    username: str
+    submit_time: datetime
+    job_name: str
+    partition: str
 
 
 def fetch_pending_jobs() -> list[JobRecord]:
