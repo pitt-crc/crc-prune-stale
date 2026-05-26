@@ -95,7 +95,7 @@ def fetch_pending_jobs() -> list[JobRecord]:
             partition=partition.strip(),
         ))
 
-    logger.debug("Found %d pending job(s) total.", len(jobs))
+    logger.debug("Found %d pending job(s).", len(jobs))
     return jobs
 
 

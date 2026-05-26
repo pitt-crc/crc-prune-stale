@@ -25,31 +25,30 @@ def main() -> None:
 
     threshold = datetime.now() - timedelta(days=args.threshold_days)
     logger.info(
-        'Starting stale-job cancellation run (dry_run=%s). '
-        'Threshold: jobs pending before %s.',
+        "Starting stale-job cancellation run (dry_run=%s). Threshold: jobs pending before %s.",
         args.dry_run,
-        threshold.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        threshold.strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
 
     try:
         all_pending = fetch_pending_jobs()
 
     except subprocess.CalledProcessError:
-        logger.critical('Could not retrieve pending jobs from squeue. Aborting.')
+        logger.critical("Could not retrieve pending jobs from squeue. Aborting.")
         return
 
     stale_jobs = [job for job in all_pending if job.submit_time < threshold]
-    logger.info('Found %d pending job(s) older than %d days.', len(stale_jobs), args.threshold_days)
+    logger.info("Found %d pending job(s) older than %d days.", len(stale_jobs), args.threshold_days)
 
     cancelled_count = 0
     failed_count = 0
     for job in stale_jobs:
         if args.dry_run:
             logger.info(
-                'Dry run — would cancel job %s submitted by %s on %s.',
+                "Dry run — would cancel job %s submitted by %s on %s.",
                 job.job_id,
                 job.username,
-                job.submit_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
+                job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
             )
             continue
 
@@ -69,12 +68,12 @@ def main() -> None:
             failed_count += 1
 
     logger.info(
-        'Run complete. Cancelled: %d  Errors: %d  Skipped (not stale): %d',
+        "Run complete. Cancelled: %d  Errors: %d  Skipped (not stale): %d",
         cancelled_count,
         failed_count,
         len(all_pending) - len(stale_jobs),
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

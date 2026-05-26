@@ -25,7 +25,7 @@ def configure_logging() -> None:
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": "INFO",
+                "level": "DEBUG",
                 "formatter": "standard",
             },
             "file": {

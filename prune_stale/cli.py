@@ -28,6 +28,7 @@ def create_parser(exit_on_error: bool = True) -> ArgumentParser:
     )
 
     pruning = parser.add_argument_group("pruning", "Controls which jobs are selected for cancellation.")
+
     pruning.add_argument(
         "--dry-run", action="store_true",
         help="log which jobs would be cancelled without actually canceling them.")

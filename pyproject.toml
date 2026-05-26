@@ -3,7 +3,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "prune-stale"
+name = "crc-prune-stale"
 version = "0.0.0"
 description = "Prune stale Slurm jobs from the job queue."
 authors = [{ name = "Pitt-CRCD" }]
