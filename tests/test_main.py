@@ -8,10 +8,10 @@ from crc_prune_stale import main
 from crc_prune_stale.slurm import JobRecord
 
 
-@patch('prune_stale.__main__.configure_logging')
-@patch('prune_stale.__main__.fetch_pending_jobs')
-@patch('prune_stale.__main__.cancel_job')
-@patch('prune_stale.__main__.notify_user')
+@patch('crc_prune_stale.__main__.configure_logging')
+@patch('crc_prune_stale.__main__.fetch_pending_jobs')
+@patch('crc_prune_stale.__main__.cancel_job')
+@patch('crc_prune_stale.__main__.notify_user')
 class Main(TestCase):
     """Verify the orchestration behaviour of the `main` function."""
 

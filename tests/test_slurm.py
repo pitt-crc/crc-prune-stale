@@ -14,7 +14,7 @@ class FetchPendingJobs(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.subprocess_patch = patch('prune_stale.slurm.subprocess.run')
+        self.subprocess_patch = patch('crc_prune_stale.slurm.subprocess.run')
         self.mock_run = self.subprocess_patch.start()
 
     def tearDown(self) -> None:
@@ -143,7 +143,7 @@ class CancelJob(TestCase):
             partition='gpu',
         )
 
-        self.subprocess_patch = patch('prune_stale.slurm.subprocess.run')
+        self.subprocess_patch = patch('crc_prune_stale.slurm.subprocess.run')
         self.mock_run = self.subprocess_patch.start()
 
     def tearDown(self) -> None:
