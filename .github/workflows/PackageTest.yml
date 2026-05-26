@@ -3,10 +3,9 @@ name: Test Package
 on:
   workflow_dispatch:
   workflow_call:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
 
 jobs:
   run-tests:
