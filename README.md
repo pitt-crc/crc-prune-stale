@@ -1,27 +1,33 @@
-# Canceling Pending Slurm Jobs
-A maintenance tool for canceling pending SLURM jobs older than a certain age
-and notifying the submitting user.
+# prune-stale
 
-## Installation
+A maintenance tool for Pitt CRCD Slurm clusters. It queries all
+pending jobs, cancels any that have been waiting longer than a configurable
+threshold, and emails the submitting user at their `@pitt.edu` address.
 
-Install the package from the CRCD package repository:
+## Install and Setup
 
-```bash
-pip install crc-prune-stale
+Install the utility from the CRCD Python repository using pipx:
+
+```shell
+pipx install crc-prune-stale
 ```
 
-The tool is intended to run as a scheduled cron job on a head or management node.
-Ensure the log directory exists and is writable before deploying:
+Before running for the first time, create the application log directory:
 
-```bash
+```shell
 sudo mkdir -p /var/log/prune_stale
-sudo chown <service-user> /var/log/prune_stale
+```
+
+Confirm the `prune-stale` utility is availible in your runtime environment:
+
+```shell
+prune-stale --help
 ```
 
 ## Usage
-The `prune-stale` command automatically identifies any stale pending jobs,
+
 ```
-prune-stale [OPTIONS]
+python -m cancel_stale_pending_jobs [OPTIONS]
 ```
 
 ### Pruning options
@@ -40,16 +46,24 @@ prune-stale [OPTIONS]
 | `--email-from ADDRESS` | `slurm-noreply@pitt.edu` | Sender address for notification emails                   |
 | `--email-dmn DOMAIN`   | `pitt.edu`               | Domain appended to usernames to form recipient addresses |
 
+Pass `--help` to see all options with their current defaults.
+
 ## Examples
 
 Cancel all jobs that have been pending for more than 10 days and notify their owners:
 
 ```bash
-prune-stale --smtp-host mailrelay.domain.com
+python -m cancel_stale_pending_jobs --threshold 10 --smtp-host mailrelay.pitt.edu
 ```
 
-Preview what would be cancelled without making any changes:
+Preview what would be canceled without making any changes:
 
 ```bash
-prune-stale --dry-run
+python -m cancel_stale_pending_jobs --dry-run --smtp-host mailrelay.pitt.edu
+```
+
+To schedule twice daily execution at 10:00 AM/PM, add the following entry to your crontab:
+
+```
+0 10,22 * * * <service-user> python -m cancel_stale_pending_jobs --smtp-host mailrelay.pitt.edu
 ```
