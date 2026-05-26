@@ -8,23 +8,23 @@ from crc_prune_stale import main
 from crc_prune_stale.slurm import JobRecord
 
 
-@patch('crc_prune_stale.__main__.configure_logging')
-@patch('crc_prune_stale.__main__.fetch_pending_jobs')
-@patch('crc_prune_stale.__main__.cancel_job')
-@patch('crc_prune_stale.__main__.notify_user')
+@patch("crc_prune_stale.__main__.configure_logging")
+@patch("crc_prune_stale.__main__.fetch_pending_jobs")
+@patch("crc_prune_stale.__main__.cancel_job")
+@patch("crc_prune_stale.__main__.notify_user")
 class Main(TestCase):
-    """Verify the orchestration behaviour of the `main` function."""
+    """Verify the orchestration behavior of the `main` function."""
 
     @staticmethod
     def _make_job(days_ago: int) -> JobRecord:
         """Return a `JobRecord` with a submit time the given number of days in the past."""
 
         return JobRecord(
-            job_id='12345',
-            username='testuser',
+            job_id="12345",
+            username="testuser",
             submit_time=datetime.now(tz=timezone.utc) - timedelta(days=days_ago),
-            job_name='my_job',
-            partition='gpu',
+            job_name="my_job",
+            partition="gpu",
         )
 
     def test_dry_run_does_not_cancel_jobs(
@@ -38,7 +38,7 @@ class Main(TestCase):
 
         mock_fetch.return_value = [self._make_job(days_ago=20)]
 
-        with patch('sys.argv', ['prune-stale', '--dry-run']):
+        with patch("sys.argv", ["prune-stale", "--dry-run"]):
             main()
 
         mock_cancel.assert_not_called()
@@ -54,7 +54,7 @@ class Main(TestCase):
 
         mock_fetch.return_value = [self._make_job(days_ago=20)]
 
-        with patch('sys.argv', ['prune-stale', '--dry-run']):
+        with patch("sys.argv", ["prune-stale", "--dry-run"]):
             main()
 
         mock_notify.assert_not_called()
@@ -72,7 +72,7 @@ class Main(TestCase):
         mock_fetch.return_value = [stale_job]
         mock_cancel.return_value = True
 
-        with patch('sys.argv', ['prune-stale']):
+        with patch("sys.argv", ["prune-stale"]):
             main()
 
         mock_cancel.assert_called_once_with(stale_job)
@@ -88,7 +88,7 @@ class Main(TestCase):
 
         mock_fetch.return_value = [self._make_job(days_ago=1)]
 
-        with patch('sys.argv', ['prune-stale']):
+        with patch("sys.argv", ["prune-stale"]):
             main()
 
         mock_cancel.assert_not_called()
@@ -105,7 +105,7 @@ class Main(TestCase):
         mock_fetch.return_value = [self._make_job(days_ago=20)]
         mock_cancel.return_value = True
 
-        with patch('sys.argv', ['prune-stale']):
+        with patch("sys.argv", ["prune-stale"]):
             main()
 
         mock_notify.assert_called_once()
@@ -122,7 +122,7 @@ class Main(TestCase):
         mock_fetch.return_value = [self._make_job(days_ago=20)]
         mock_cancel.return_value = False
 
-        with patch('sys.argv', ['prune-stale']):
+        with patch("sys.argv", ["prune-stale"]):
             main()
 
         mock_notify.assert_not_called()

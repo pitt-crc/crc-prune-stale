@@ -17,7 +17,7 @@ class ConfigureLogging(TestCase):
         self.log_dir = TemporaryDirectory()
 
         self._reset_logging_config()
-        configure_logging(Path(self.log_dir.name) / 'prune_stale.log')
+        configure_logging(Path(self.log_dir.name) / "prune_stale.log")
 
     def tearDown(self) -> None:
         """Clean up the temporary log directory."""
@@ -25,7 +25,8 @@ class ConfigureLogging(TestCase):
         self._reset_logging_config()
         self.log_dir.cleanup()
 
-    def _reset_logging_config(self) -> None:
+    @staticmethod
+    def _reset_logging_config() -> None:
         """Clear any existing logging configuration."""
 
         root = logging.getLogger()
@@ -52,4 +53,4 @@ class ConfigureLogging(TestCase):
         """Verify that a `FileNotFoundError` is raised when the log directory does not exist."""
 
         with self.assertRaises(FileNotFoundError):
-            configure_logging(Path('/nonexistent/directory/prune_stale.log'))
+            configure_logging(Path("/nonexistent/directory/prune_stale.log"))

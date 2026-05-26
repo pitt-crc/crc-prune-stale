@@ -6,7 +6,7 @@ from pathlib import Path
 __all__ = ["configure_logging"]
 
 
-def configure_logging(log_path: Path = Path('/var/log/prune_stale/prune_stale.log')) -> None:
+def configure_logging(log_path: Path = Path("/var/log/prune_stale/prune_stale.log")) -> None:
     """Initialize the application logger.
 
     Initializes the root logging handler with the following log handlers:
@@ -21,7 +21,7 @@ def configure_logging(log_path: Path = Path('/var/log/prune_stale/prune_stale.lo
     """
 
     if not log_path.parent.exists():
-        raise FileNotFoundError(f'Log directory does not exist: {log_path.parent}')
+        raise FileNotFoundError(f"Log directory does not exist: {log_path.parent}")
 
     logging.config.dictConfig({
         "version": 1,

@@ -17,7 +17,7 @@ class ParserConfig(TestCase):
     def test_parser_prog_name(self) -> None:
         """Verify that the parser program name is set to `prune-stale`."""
 
-        self.assertEqual(create_parser().prog, 'prune-stale')
+        self.assertEqual(create_parser().prog, "prune-stale")
 
 
 class DryRunFlag(TestCase):
@@ -37,7 +37,7 @@ class DryRunFlag(TestCase):
     def test_dry_run_flag_sets_true(self) -> None:
         """Verify that passing `--dry-run` sets `dry_run` to `True`."""
 
-        args = self.parser.parse_args(['--dry-run'])
+        args = self.parser.parse_args(["--dry-run"])
         self.assertTrue(args.dry_run)
 
 
@@ -58,7 +58,7 @@ class ThresholdArgument(TestCase):
     def test_threshold_accepts_integer(self) -> None:
         """Verify that `--threshold` parses a valid integer into `threshold_days`."""
 
-        args = self.parser.parse_args(['--threshold', '30'])
+        args = self.parser.parse_args(["--threshold", "30"])
         self.assertEqual(args.threshold, 30)
 
 
@@ -79,8 +79,8 @@ class SmtpHostArgument(TestCase):
     def test_smtp_host_accepts_hostname(self) -> None:
         """Verify that `--smtp-host` stores the provided hostname string."""
 
-        args = self.parser.parse_args(['--smtp-host', 'mail.example.com'])
-        self.assertEqual(args.smtp_host, 'mail.example.com')
+        args = self.parser.parse_args(["--smtp-host", "mail.example.com"])
+        self.assertEqual(args.smtp_host, "mail.example.com")
 
 
 class SmtpPortArgument(TestCase):
@@ -100,7 +100,7 @@ class SmtpPortArgument(TestCase):
     def test_smtp_port_accepts_integer(self) -> None:
         """Verify that `--smtp-port` parses a valid integer."""
 
-        args = self.parser.parse_args(['--smtp-port', '587'])
+        args = self.parser.parse_args(["--smtp-port", "587"])
         self.assertEqual(args.smtp_port, 587)
 
 
@@ -121,8 +121,8 @@ class EmailFromArgument(TestCase):
     def test_email_from_accepts_address(self) -> None:
         """Verify that `--email-from` stores the provided address string."""
 
-        args = self.parser.parse_args(['--email-from', 'admin@example.com'])
-        self.assertEqual(args.email_from, 'admin@example.com')
+        args = self.parser.parse_args(["--email-from", "admin@example.com"])
+        self.assertEqual(args.email_from, "admin@example.com")
 
 
 class EmailDomainArgument(TestCase):
@@ -142,17 +142,17 @@ class EmailDomainArgument(TestCase):
     def test_email_dmn_accepts_bare_domain(self) -> None:
         """Verify that a domain without a leading `@` is stored as-is."""
 
-        args = self.parser.parse_args(['--email-dmn', 'example.com'])
-        self.assertEqual(args.email_dmn, 'example.com')
+        args = self.parser.parse_args(["--email-dmn", "example.com"])
+        self.assertEqual(args.email_dmn, "example.com")
 
     def test_email_dmn_strips_leading_at_symbol(self) -> None:
         """Verify that a leading `@` is stripped from the domain value."""
 
-        args = self.parser.parse_args(['--email-dmn', '@example.com'])
-        self.assertEqual(args.email_dmn, 'example.com', 'Leading @ should be stripped from email domain')
+        args = self.parser.parse_args(["--email-dmn", "@example.com"])
+        self.assertEqual(args.email_dmn, "example.com", "Leading @ should be stripped from email domain")
 
     def test_email_dmn_strips_only_leading_at_symbol(self) -> None:
         """Verify that only the leading `@` is stripped, not internal `@` characters."""
 
-        args = self.parser.parse_args(['--email-dmn', '@sub.example.com'])
-        self.assertEqual(args.email_dmn, 'sub.example.com')
+        args = self.parser.parse_args(["--email-dmn", "@sub.example.com"])
+        self.assertEqual(args.email_dmn, "sub.example.com")

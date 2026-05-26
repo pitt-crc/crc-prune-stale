@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class JobRecord:
-    """A lightweight container for a single Slurm pending job's metadata."""
+    """A lightweight container for a single Slurm job's metadata."""
 
     job_id: str
     username: str
