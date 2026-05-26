@@ -11,5 +11,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
+[tool.poetry.group.tests.dependencies]
+coverage = "*"
+
 [tool.poetry.scripts]
 prune-stale = "prune_stale.__main__:main"
