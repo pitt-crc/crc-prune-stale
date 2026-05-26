@@ -7,7 +7,7 @@ delegated to a sibling module.
 
 import logging
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .cli import create_parser
 from .log import configure_logging as configure_logging
@@ -23,7 +23,7 @@ def main() -> None:
     configure_logging()
     args = create_parser().parse_args()
 
-    threshold = datetime.now() - timedelta(days=args.threshold)
+    threshold = datetime.now(tz=timezone.utc) - timedelta(days=args.threshold)
     logger.info(
         "Starting stale-job cancellation run (dry_run=%s). Threshold: jobs pending before %s.",
         args.dry_run,
