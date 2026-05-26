@@ -23,7 +23,7 @@ def main() -> None:
     configure_logging()
     args = create_parser().parse_args()
 
-    threshold = datetime.now() - timedelta(days=args.threshold_days)
+    threshold = datetime.now() - timedelta(days=args.threshold)
     logger.info(
         "Starting stale-job cancellation run (dry_run=%s). Threshold: jobs pending before %s.",
         args.dry_run,
@@ -38,7 +38,7 @@ def main() -> None:
         return
 
     stale_jobs = [job for job in all_pending if job.submit_time < threshold]
-    logger.info("Found %d pending job(s) older than %d days.", len(stale_jobs), args.threshold_days)
+    logger.info("Found %d pending job(s) older than %d days.", len(stale_jobs), args.threshold)
 
     cancelled_count = 0
     failed_count = 0
@@ -61,7 +61,7 @@ def main() -> None:
                 smtp_port=args.smtp_port,
                 email_from=args.email_from,
                 email_domain=args.email_dmn,
-                threshold_days=args.threshold_days,
+                threshold=args.threshold,
             )
 
         else:

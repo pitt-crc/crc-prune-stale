@@ -17,7 +17,7 @@ def notify_user(
     smtp_port: int,
     email_from: str,
     email_domain: str,
-    threshold_days: int,
+    threshold: int,
 ) -> None:
     """Send an email notification to the job owner.
 
@@ -27,16 +27,16 @@ def notify_user(
         smtp_port: Port of the SMTP server.
         email_from: Sender address for the notification.
         email_domain: Domain appended to the username to form the recipient address.
-        threshold_days: Number of pending days stated in the notification body.
+        threshold: Number of pending days stated in the notification body.
     """
 
     recipient = f"{job.username}@{email_domain}"
-    subject = f"[Slurm] Pending job {job.job_id} cancelled after {threshold_days} days"
+    subject = f"[Slurm] Pending job {job.job_id} cancelled after {threshold} days"
 
     body = (
         f"Dear {job.username},\n\n"
         f"Your Slurm job has been automatically cancelled because it remained in the\n"
-        f"PENDING state for more than {threshold_days} days without starting.\n\n"
+        f"PENDING state for more than {threshold} days without starting.\n\n"
         f"  Job ID   : {job.job_id}\n"
         f"  Job name : {job.job_name}\n"
         f"  Partition: {job.partition}\n"

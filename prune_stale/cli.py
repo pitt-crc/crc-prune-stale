@@ -2,7 +2,13 @@
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-__all__ = ["create_parser"]
+__all__ = [
+    "DEFAULT_APPEND_DOMAIN",
+    "DEFAULT_EMAIL_FROM",
+    "DEFAULT_SMTP_PORT",
+    "DEFAULT_THRESHOLD",
+    "create_parser",
+]
 
 DEFAULT_THRESHOLD = 10  # Days
 DEFAULT_SMTP_PORT = 25
@@ -34,7 +40,7 @@ def create_parser(exit_on_error: bool = True) -> ArgumentParser:
         help="log which jobs would be cancelled without actually canceling them.")
 
     pruning.add_argument(
-        "--threshold", metavar="DAYS", type=int, dest="threshold_days", default=DEFAULT_THRESHOLD,
+        "--threshold", metavar="DAYS", type=int, default=DEFAULT_THRESHOLD,
         help="number of days a job must have been pending before it is cancelled.")
 
     notifications = parser.add_argument_group("notifications", "controls outbound email notifications.")
