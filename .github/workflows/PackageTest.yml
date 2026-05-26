@@ -1,0 +1,61 @@
+name: Test Package
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python_version:
+          - 3.10
+          - 3.11
+          - 3.12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install dependencies
+        run: poetry install --with tests
+
+      - name: Run tests with coverage
+        run: |
+          poetry run coverage run -m unittest discover 
+          poetry run coverage report --omit="tests/*"
+          poetry run coverage xml --omit="tests/*" -o coverage.xml
+
+      - name: Report partial coverage results
+        if: github.event_name != 'release'
+        shell: bash
+        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l Python -r coverage.xml
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+  # Use this job for branch protection rules
+  report-test-status:
+    name: Report Test Status
+    if: always()
+    needs: run-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finish reporting coverage
+        shell: bash
+        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) final
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+      - name: Check build status
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
