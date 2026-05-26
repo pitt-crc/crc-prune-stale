@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from prune_stale.slurm import cancel_job, fetch_pending_jobs, JobRecord
+from crc_prune_stale.slurm import cancel_job, fetch_pending_jobs, JobRecord
 
 
 class FetchPendingJobs(TestCase):

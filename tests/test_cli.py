@@ -2,7 +2,7 @@
 
 from unittest import TestCase
 
-from prune_stale.cli import (
+from crc_prune_stale.cli import (
     create_parser,
     DEFAULT_APPEND_DOMAIN,
     DEFAULT_EMAIL_FROM,

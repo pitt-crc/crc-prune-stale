@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from prune_stale.notify import notify_user
-from prune_stale.slurm import JobRecord
+from crc_prune_stale.notify import notify_user
+from crc_prune_stale.slurm import JobRecord
 
 
 class NotifyUser(TestCase):

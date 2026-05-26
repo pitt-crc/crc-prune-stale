@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from prune_stale import main
-from prune_stale.slurm import JobRecord
+from crc_prune_stale import main
+from crc_prune_stale.slurm import JobRecord
 
 
 @patch('prune_stale.__main__.configure_logging')

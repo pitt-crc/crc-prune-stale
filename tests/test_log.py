@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from prune_stale.log import configure_logging
+from crc_prune_stale.log import configure_logging
 
 
 class ConfigureLogging(TestCase):
