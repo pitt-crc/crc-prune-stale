@@ -2,13 +2,13 @@
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-__all__ = [
+__all__ = (
     "DEFAULT_APPEND_DOMAIN",
     "DEFAULT_EMAIL_FROM",
     "DEFAULT_SMTP_PORT",
     "DEFAULT_THRESHOLD",
     "create_parser",
-]
+)
 
 DEFAULT_THRESHOLD = 10  # Days
 DEFAULT_SMTP_PORT = 25
@@ -43,9 +43,15 @@ def create_parser(exit_on_error: bool = True) -> ArgumentParser:
         "--threshold", metavar="DAYS", type=int, default=DEFAULT_THRESHOLD,
         help="number of days a job must have been pending before it is cancelled.")
 
-    notifications = parser.add_argument_group("notifications", "controls outbound email notifications.")
-    notifications.add_argument("--smtp-host", metavar="HOST", help="SMTP server hostname.")
-    notifications.add_argument("--smtp-port", metavar="PORT", type=int, default=DEFAULT_SMTP_PORT, help="SMTP server port.")
+    notifications = parser.add_argument_group("notifications", "Controls outbound email notifications.")
+
+    notifications.add_argument(
+        "--smtp-host", metavar="HOST", default=None,
+        help="SMTP server hostname. Omit to disable email notifications.")
+
+    notifications.add_argument(
+        "--smtp-port", metavar="PORT", type=int, default=DEFAULT_SMTP_PORT,
+        help="SMTP server port.")
 
     notifications.add_argument(
         "--email-from", metavar="ADDRESS", default=DEFAULT_EMAIL_FROM,

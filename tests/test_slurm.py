@@ -14,7 +14,7 @@ class FetchPendingJobs(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.subprocess_patch = patch("crc_prune_stale.slurm.subprocess.run")
+        self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
         self.mock_run = self.subprocess_patch.start()
 
     def tearDown(self) -> None:
@@ -31,7 +31,7 @@ class FetchPendingJobs(TestCase):
         return result
 
     def test_squeue_called_with_correct_arguments(self) -> None:
-        """Verify that `squeue` is invoked with the expected command-line flags."""
+        """Verify `squeue` is invoked with the expected command-line flags."""
 
         self.mock_run.return_value = self._make_result("")
         fetch_pending_jobs()
@@ -42,7 +42,7 @@ class FetchPendingJobs(TestCase):
         self.assertIn("--noheader", args)
 
     def test_raises_on_subprocess_error(self) -> None:
-        """Verify that a `CalledProcessError` from squeue propagates to the caller."""
+        """Verify a `CalledProcessError` from squeue propagates to the caller."""
 
         self.mock_run.side_effect = subprocess.CalledProcessError(1, "squeue", stderr="error")
 
@@ -50,7 +50,7 @@ class FetchPendingJobs(TestCase):
             fetch_pending_jobs()
 
     def test_returns_list_of_job_records(self) -> None:
-        """Verify that a valid squeue line is parsed into a `JobRecord`."""
+        """Verify a valid squeue line is parsed into a `JobRecord`."""
 
         self.mock_run.return_value = self._make_result(
             "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
@@ -61,7 +61,7 @@ class FetchPendingJobs(TestCase):
         self.assertIsInstance(jobs[0], JobRecord)
 
     def test_parses_job_fields_correctly(self) -> None:
-        """Verify that all fields of a parsed `JobRecord` match the squeue output."""
+        """Verify all fields of a parsed `JobRecord` match the squeue output."""
 
         self.mock_run.return_value = self._make_result(
             "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
@@ -75,7 +75,7 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(job.partition, "gpu")
 
     def test_parses_multiple_jobs(self) -> None:
-        """Verify that multiple output lines are each parsed into a `JobRecord`."""
+        """Verify multiple output lines are each parsed into a `JobRecord`."""
 
         self.mock_run.return_value = self._make_result(
             "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
@@ -85,13 +85,13 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(len(fetch_pending_jobs()), 2)
 
     def test_returns_empty_list_when_no_output(self) -> None:
-        """Verify that an empty squeue output returns an empty list."""
+        """Verify an empty squeue output returns an empty list."""
 
         self.mock_run.return_value = self._make_result("")
         self.assertEqual(fetch_pending_jobs(), [])
 
     def test_skips_blank_lines(self) -> None:
-        """Verify that blank lines in squeue output are ignored."""
+        """Verify blank lines in squeue output are ignored."""
 
         self.mock_run.return_value = self._make_result(
             "\n12345|testuser|2024-01-01T12:00:00|my_job|gpu\n\n"
@@ -100,7 +100,7 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(len(fetch_pending_jobs()), 1)
 
     def test_skips_malformed_lines(self) -> None:
-        """Verify that lines with the wrong number of fields are skipped."""
+        """Verify lines with the wrong number of fields are skipped."""
 
         self.mock_run.return_value = self._make_result(
             "12345|testuser|2024-01-01T12:00:00\n"
@@ -109,7 +109,7 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(fetch_pending_jobs(), [])
 
     def test_skips_lines_with_unparseable_submit_time(self) -> None:
-        """Verify that lines with an invalid submit time are skipped."""
+        """Verify lines with an invalid submit time are skipped."""
 
         self.mock_run.return_value = self._make_result(
             "12345|testuser|not-a-date|my_job|gpu\n"
@@ -118,7 +118,7 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(fetch_pending_jobs(), [])
 
     def test_strips_whitespace_from_fields(self) -> None:
-        """Verify that leading and trailing whitespace is stripped from each field."""
+        """Verify leading and trailing whitespace is stripped from each field."""
 
         self.mock_run.return_value = self._make_result(
             " 12345 | testuser | 2024-01-01T12:00:00 | my_job | gpu \n"
@@ -144,7 +144,7 @@ class CancelJob(TestCase):
             partition="gpu",
         )
 
-        self.subprocess_patch = patch("crc_prune_stale.slurm.subprocess.run")
+        self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
         self.mock_run = self.subprocess_patch.start()
 
     def tearDown(self) -> None:
@@ -153,7 +153,7 @@ class CancelJob(TestCase):
         self.subprocess_patch.stop()
 
     def test_scancel_called_with_job_id(self) -> None:
-        """Verify that `scancel` is invoked with the job ID."""
+        """Verify `scancel` is invoked with the job ID."""
 
         cancel_job(self.job)
 
@@ -162,12 +162,18 @@ class CancelJob(TestCase):
         self.assertIn("12345", args)
 
     def test_returns_true_on_success(self) -> None:
-        """Verify that `True` is returned when scancel exits without error."""
+        """Verify `True` is returned when scancel exits without error."""
 
         self.assertTrue(cancel_job(self.job))
 
     def test_returns_false_on_subprocess_error(self) -> None:
-        """Verify that `False` is returned when scancel raises a `CalledProcessError`."""
+        """Verify `False` is returned when scancel raises a `CalledProcessError`."""
 
         self.mock_run.side_effect = subprocess.CalledProcessError(1, "scancel", stderr="error")
         self.assertFalse(cancel_job(self.job))
+
+    def test_dry_run_does_not_invoke_scancel(self) -> None:
+        """Verify `scancel` is not invoked when `dry_run` is True."""
+
+        cancel_job(self.job, dry_run=True)
+        self.mock_run.assert_not_called()
