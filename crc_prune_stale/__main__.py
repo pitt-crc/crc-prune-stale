@@ -100,4 +100,4 @@ def main() -> None:
         pass
 
     except Exception as exc:
-        logger.critical(exc, exc_info=True)
+        logger.critical(exc)
