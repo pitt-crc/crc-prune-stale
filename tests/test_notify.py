@@ -64,28 +64,28 @@ class NotifyUsers(TestCase):
         return [call.args[0] for call in self.mock_smtp_instance.send_message.call_args_list]
 
     def test_recipient_address_combines_username_and_domain(self) -> None:
-        """Verify that the `To` field is constructed from the username and domain."""
+        """Verify the `To` field is constructed from the username and domain."""
 
         self._call()
         message = self._sent_messages()[0]
         self.assertEqual(message["To"], "testuser@example.com")
 
     def test_sender_address_matches_email_from_argument(self) -> None:
-        """Verify that the `From` field matches the `email_from` argument."""
+        """Verify the `From` field matches the `email_from` argument."""
 
         self._call()
         message = self._sent_messages()[0]
         self.assertEqual(message["From"], "noreply@example.com")
 
     def test_subject_matches_expected_format(self) -> None:
-        """Verify that the `Subject` field matches the expected format exactly."""
+        """Verify the `Subject` field matches the expected format exactly."""
 
         self._call()
         message = self._sent_messages()[0]
         self.assertEqual(message["Subject"], "Pending Slurm jobs cancelled")
 
     def test_body_contains_job_metadata(self) -> None:
-        """Verify that the email body contains the job ID, name, partition, and submit time."""
+        """Verify the email body contains the job ID, name, partition, and submit time."""
 
         self._call()
         body = self._sent_messages()[0].get_content()
@@ -95,26 +95,26 @@ class NotifyUsers(TestCase):
         self.assertIn("2024-01-01 12:00:00 UTC", body)
 
     def test_body_contains_threshold(self) -> None:
-        """Verify that the email body references the configured threshold."""
+        """Verify the email body references the configured threshold."""
 
         self._call(threshold=14)
         body = self._sent_messages()[0].get_content()
         self.assertIn("14 days", body)
 
     def test_smtp_connected_with_host_and_port(self) -> None:
-        """Verify that the SMTP client is opened with the provided host and port."""
+        """Verify the SMTP client is opened with the provided host and port."""
 
         self._call(smtp_host="mail.pitt.edu", smtp_port=587)
         self.mock_smtp.assert_called_with("mail.pitt.edu", 587)
 
     def test_single_user_receives_one_message(self) -> None:
-        """Verify that one email is sent per call when only one user is affected."""
+        """Verify one email is sent per call when only one user is affected."""
 
         self._call()
         self.mock_smtp_instance.send_message.assert_called_once()
 
     def test_smtp_exception_does_not_propagate(self) -> None:
-        """Verify that an `SMTPException` is caught and does not propagate to the caller."""
+        """Verify an `SMTPException` is caught and does not propagate to the caller."""
 
         self.mock_smtp_instance.send_message.side_effect = smtplib.SMTPException("connection refused")
         try:
@@ -124,13 +124,13 @@ class NotifyUsers(TestCase):
             self.fail("SMTPException propagated out of notify_users")
 
     def test_empty_job_list_sends_no_messages(self) -> None:
-        """Verify that no emails are sent when the job list is empty."""
+        """Verify no emails are sent when the job list is empty."""
 
         self._call(jobs=[])
         self.mock_smtp_instance.send_message.assert_not_called()
 
     def test_one_email_per_user(self) -> None:
-        """Verify that one email is sent per distinct username, regardless of job count."""
+        """Verify one email is sent per distinct username, regardless of job count."""
 
         jobs = [
             _make_job(job_id="1", username="alice"),
@@ -143,7 +143,7 @@ class NotifyUsers(TestCase):
         self.assertEqual(recipients, ["alice@example.com", "bob@example.com"])
 
     def test_multiple_jobs_per_user_appear_in_single_message(self) -> None:
-        """Verify that all of a user's jobs are listed in their single notification email."""
+        """Verify all of a user's jobs are listed in their single notification email."""
 
         jobs = [
             _make_job(job_id="111", username="alice", job_name="train", partition="gpu"),
@@ -163,7 +163,7 @@ class NotifyUsers(TestCase):
         self.assertIn("cpu", body)
 
     def test_smtp_failure_for_one_user_does_not_block_others(self) -> None:
-        """Verify that an SMTP failure sending to one user does not prevent sending to others."""
+        """Verify an SMTP failure sending to one user does not prevent sending to others."""
 
         self.mock_smtp_instance.send_message.side_effect = [
             smtplib.SMTPException("boom"),

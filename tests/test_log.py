@@ -9,7 +9,7 @@ from crc_prune_stale.log import configure_logging
 
 
 class ConfigureLogging(TestCase):
-    """Verify that `configure_logging` initialises the root logger correctly."""
+    """Verify `configure_logging` initialises the root logger correctly."""
 
     def setUp(self) -> None:
         """Instantiate a parser instance."""
@@ -33,24 +33,24 @@ class ConfigureLogging(TestCase):
         root.handlers.clear()
 
     def test_root_logger_level_is_debug(self) -> None:
-        """Verify that the root logger level is set to `DEBUG`."""
+        """Verify the root logger level is set to `DEBUG`."""
 
         self.assertEqual(logging.getLogger().level, logging.DEBUG)
 
     def test_has_console_handler(self) -> None:
-        """Verify that the root logger has a `StreamHandler` attached."""
+        """Verify the root logger has a `StreamHandler` attached."""
 
         handler_types = [type(h) for h in logging.getLogger().handlers]
         self.assertIn(logging.StreamHandler, handler_types)
 
     def test_has_file_handler(self) -> None:
-        """Verify that the root logger has a `FileHandler` attached."""
+        """Verify the root logger has a `FileHandler` attached."""
 
         handler_types = [type(h) for h in logging.getLogger().handlers]
         self.assertIn(logging.FileHandler, handler_types)
 
     def test_warns_on_inaccessible_log_directory(self) -> None:
-        """Verify that a warning is logged when the log directory does not exist."""
+        """Verify a warning is logged when the log directory does not exist."""
 
         self._reset_logging_config()
         bad_path = Path("/nonexistent/directory/prune_stale.log")
