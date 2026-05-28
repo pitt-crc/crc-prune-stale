@@ -13,6 +13,8 @@ from .log import configure_logging
 from .notify import notify_users
 from .slurm import cancel_jobs, fetch_pending_jobs, filter_stale_jobs
 
+__all__ = ("main", "run")
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,21 +22,21 @@ def run(
     *,
     dry_run: bool,
     threshold: int,
-    smtp_host: str,
+    smtp_host: str | None,
     smtp_port: int,
     email_from: str,
     email_domain: str,
 ) -> None:
     """Cancel all pending Slurm jobs exceeding the staleness threshold and notify affected users.
 
-    Fetches all pending jobs from slurm older than the given threshold, cancels
-    them, and notifies affected users by email. Dry-run mode logs intended
-    cancellations without making any changes or notifying users.
+    Fetches all pending jobs from Slurm older than the given threshold, cancels
+    them, and notifies affected users by email. Notifications are skipped when
+    `smtp_host=None` or `dry-run=True`.
 
     Args:
         dry_run: If True, log intended cancellations without calling scancel.
         threshold: Number of days a job must have been pending before cancellation.
-        smtp_host: Hostname of the SMTP server.
+        smtp_host: Hostname of the SMTP server, or `None` to disable notifications.
         smtp_port: Port of the SMTP server.
         email_from: Sender address for notification emails.
         email_domain: Domain appended to usernames when constructing recipient addresses.
@@ -51,7 +53,7 @@ def run(
     stale_jobs = filter_stale_jobs(all_pending, cutoff)
     cancelled_jobs = cancel_jobs(stale_jobs, dry_run=dry_run)
 
-    if not dry_run:
+    if smtp_host and not dry_run:
         notify_users(
             cancelled_jobs,
             smtp_host=smtp_host,
