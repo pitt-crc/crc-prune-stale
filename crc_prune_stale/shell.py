@@ -20,17 +20,13 @@ def run_subprocess(command: list[str]) -> subprocess.CompletedProcess:
         result: The completed process with stdout and stderr captured as text.
     """
 
-    logger.debug("Running command: %s", " ".join(command))
+    cmd_str = " ".join(command)
+    logger.debug("Running command: %s", cmd_str)
 
     try:
         return subprocess.run(command, capture_output=True, text=True, check=True)
 
-    except subprocess.CalledProcessError as exc:
-        logger.error(
-            "Command %r exited with return code %d. stderr: %s",
-            exc.cmd,
-            exc.returncode,
-            exc.stderr.strip(),
-        )
+    except Exception as exc:
+        logger.error("Command %r exited with error: %s", cmd_str, exc)
 
         raise
