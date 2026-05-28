@@ -15,4 +15,4 @@ dependencies = []
 coverage = "*"
 
 [tool.poetry.scripts]
-prune-stale = "prune_stale.__main__:main"
+prune-stale = "crc_prune_stale.__main__:main"
