@@ -32,10 +32,11 @@ def configure_logging(log_path: Path = LOG_PATH) -> None:
     console_handler.setFormatter(LOG_FORMAT)
     root.addHandler(console_handler)
 
+    # noinspection PyBroadException
     try:
         file_handler = logging.FileHandler(str(log_path))
 
-    except Exception:
+    except:
         logging.warning("Could not open log file %s", log_path)
         return
 

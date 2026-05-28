@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from .cli import create_parser
 from .log import configure_logging
 from .notify import notify_users
-from .slurm import cancel_jobs, fetch_pending_jobs, filter_stale_jobs
+from .slurm import cancel_job, fetch_pending_jobs
 
 __all__ = ("main", "run")
 
@@ -50,8 +50,13 @@ def run(
     )
 
     all_pending = fetch_pending_jobs()
-    stale_jobs = filter_stale_jobs(all_pending, cutoff)
-    cancelled_jobs = cancel_jobs(stale_jobs, dry_run=dry_run)
+    logger.info("Found %d pending jobs.", len(all_pending))
+
+    stale_jobs = [job for job in all_pending if job.submit_time < cutoff]
+    logger.info("Found %d stale jobs older than cutoff.", len(stale_jobs))
+
+    cancelled_jobs = [job for job in stale_jobs if cancel_job(job, dry_run=dry_run)]
+    logger.info("Marked %d jobs for cancellation without errors.", len(cancelled_jobs))
 
     if smtp_host and not dry_run:
         notify_users(

@@ -1,18 +1,12 @@
 """Slurm job data types and subprocess wrappers for `squeue` and `scancel`."""
 
 import logging
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .shell import run_subprocess
 
-__all__ = (
-    "JobRecord",
-    "cancel_jobs",
-    "fetch_pending_jobs",
-    "filter_stale_jobs",
-)
+__all__ = ("JobRecord", "cancel_job", "fetch_pending_jobs")
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -21,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class JobRecord:
-    """A lightweight container for a single Slurm job's metadata."""
+    """Metadata for a single Slurm job."""
 
     job_id: str
     username: str
@@ -37,26 +31,16 @@ def fetch_pending_jobs() -> list[JobRecord]:
         jobs: A list of JobRecord instances, one per pending job.
     """
 
-    try:
-        result = run_subprocess([
-            "squeue",
-            "--states=PENDING",
-            "--noheader",
-            "--Format=JobID,UserName,SubmitTime,Name,Partition",
-            "--delimiter=|",
-        ])
-
-    except subprocess.CalledProcessError as exc:
-        logger.error(
-            "squeue exited with return code %d. stderr: %s",
-            exc.returncode,
-            exc.stderr.strip(),
-        )
-        raise
+    slurm_cmd = run_subprocess([
+        "squeue",
+        "--states=PENDING",
+        "--noheader",
+        "--Format=JobID,UserName,SubmitTime,Name,Partition",
+        "--delimiter=|",
+    ])
 
     jobs: list[JobRecord] = []
-
-    for line in result.stdout.splitlines():
+    for line in slurm_cmd.stdout.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -67,7 +51,6 @@ def fetch_pending_jobs() -> list[JobRecord]:
             continue
 
         job_id, username, submit_time_str, job_name, partition = parts
-
         try:
             submit_time = datetime.strptime(
                 submit_time_str.strip(), SLURM_TIME_FORMAT
@@ -93,75 +76,32 @@ def fetch_pending_jobs() -> list[JobRecord]:
     return jobs
 
 
-def filter_stale_jobs(jobs: list[JobRecord], threshold: datetime) -> list[JobRecord]:
-    """Return only the jobs whose submit time falls before the given threshold.
-
-    Args:
-        jobs: The full list of pending jobs to filter.
-        threshold: Cutoff datetime; jobs submitted before this are considered stale.
-
-    Returns:
-        stale: The subset of jobs older than the threshold.
-    """
-
-    stale = [job for job in jobs if job.submit_time < threshold]
-    logger.info("Found %d pending job(s) older than the threshold.", len(stale))
-    return stale
-
-
-def cancel_jobs(jobs: list[JobRecord], *, dry_run: bool = False) -> list[JobRecord]:
-    """Attempt to cancel each job and return the ones that succeeded.
-
-    When dry_run is True, logs what would be cancelled and returns an empty list
-    so that downstream steps (e.g. notifications) produce no side effects.
-
-    Args:
-        jobs: The stale jobs to cancel.
-        dry_run: If True, log intended cancellations without calling scancel.
-
-    Returns:
-        cancelled: Jobs that were successfully cancelled.
-    """
-
-    if dry_run:
-        for job in jobs:
-            logger.info(
-                "Dry run — would cancel job %s submitted by %s on %s.",
-                job.job_id,
-                job.username,
-                job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            )
-        return []
-
-    cancelled: list[JobRecord] = []
-    for job in jobs:
-        if _cancel_job(job):
-            cancelled.append(job)
-
-    return cancelled
-
-
-def _cancel_job(job: JobRecord) -> bool:
+def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
     """Cancel a single Slurm job by ID using scancel.
 
     Args:
         job: The JobRecord of the job to cancel.
+        dry_run: If True, log the intended cancellation without calling scancel.
 
     Returns:
-        success: True if scancel exited without error, False otherwise.
+        success: True if scancel exited without error, or if dry_run is True.
     """
 
+    if dry_run:
+        logger.info(
+            "Dry run — would cancel job %s submitted by %s on %s.",
+            job.job_id,
+            job.username,
+            job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        )
+
+        return True
+
+    # noinspection PyBroadException
     try:
         run_subprocess(["scancel", job.job_id])
 
-    except subprocess.CalledProcessError as exc:
-        logger.error(
-            "scancel failed for job %s (user %s). Return code: %d. stderr: %s",
-            job.job_id,
-            job.username,
-            exc.returncode,
-            exc.stderr.strip(),
-        )
+    except:
         return False
 
     logger.info(
@@ -172,4 +112,5 @@ def _cancel_job(job: JobRecord) -> bool:
         job.job_name,
         job.partition,
     )
+
     return True

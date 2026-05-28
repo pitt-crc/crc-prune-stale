@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 def run_subprocess(command: list[str]) -> subprocess.CompletedProcess:
     """Run a shell command, log it at DEBUG level, and return the completed process.
 
-    Raises `subprocess.CalledProcessError` if the command exits with a non-zero
-    return code.
+    Execution errors are logged and raised.
 
     Args:
         command: The command and its arguments as a list of strings.
@@ -22,4 +21,16 @@ def run_subprocess(command: list[str]) -> subprocess.CompletedProcess:
     """
 
     logger.debug("Running command: %s", " ".join(command))
-    return subprocess.run(command, capture_output=True, text=True, check=True)
+
+    try:
+        return subprocess.run(command, capture_output=True, text=True, check=True)
+
+    except subprocess.CalledProcessError as exc:
+        logger.error(
+            "Command %r exited with return code %d. stderr: %s",
+            exc.cmd,
+            exc.returncode,
+            exc.stderr.strip(),
+        )
+
+        raise
