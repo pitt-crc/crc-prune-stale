@@ -7,7 +7,7 @@ from email.message import EmailMessage
 
 from .slurm import JobRecord
 
-__all__ = ["notify_users"]
+__all__ = ("notify_users",)
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,10 @@ def notify_users(
     email_domain: str,
     threshold: int,
 ) -> None:
-    """Send one notification email per affected user summarising all their cancelled jobs.
+    """Send one notification email per affected user summarizing their canceled jobs.
 
-    Jobs are grouped by username before sending so that a user who had multiple
-    stale jobs cancelled receives a single email listing all of them.
+    Users who had multiple stale jobs canceled receive a single email
+    detailing all terminated jobs.
 
     Args:
         jobs: The full list of successfully cancelled jobs.
@@ -59,11 +59,11 @@ def _notify_user(
     email_domain: str,
     threshold: int,
 ) -> None:
-    """Send a single notification email listing all cancelled jobs for one user.
+    """Send a single notification email listing all canceled jobs for one user.
 
     Args:
         username: The Slurm username of the recipient.
-        jobs: All cancelled jobs belonging to this user.
+        jobs: All canceled jobs belonging to this user.
         smtp_host: Hostname of the SMTP server.
         smtp_port: Port of the SMTP server.
         email_from: Sender address for the notification.
@@ -74,7 +74,7 @@ def _notify_user(
     recipient = f"{username}@{email_domain}"
     job_count = len(jobs)
     subject = (
-        f"[Slurm] {job_count} pending job(s) cancelled after {threshold} days"
+        f"Pending Slurm jobs cancelled"
     )
 
     job_lines = "\n".join(
