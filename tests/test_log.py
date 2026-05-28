@@ -49,8 +49,14 @@ class ConfigureLogging(TestCase):
         handler_types = [type(h) for h in logging.getLogger().handlers]
         self.assertIn(logging.FileHandler, handler_types)
 
-    def test_raises_on_inaccessible_log_directory(self) -> None:
-        """Verify that a `FileNotFoundError` is raised when the log directory does not exist."""
+    def test_warns_on_inaccessible_log_directory(self) -> None:
+        """Verify that a warning is logged when the log directory does not exist."""
 
-        with self.assertRaises(FileNotFoundError):
-            configure_logging(Path("/nonexistent/directory/prune_stale.log"))
+        self._reset_logging_config()
+        bad_path = Path("/nonexistent/directory/prune_stale.log")
+
+        with self.assertLogs(level=logging.WARNING) as captured:
+            configure_logging(bad_path)
+
+        combined = "\n".join(captured.output)
+        self.assertIn(str(bad_path), combined, "Warning message should include the offending log path")
