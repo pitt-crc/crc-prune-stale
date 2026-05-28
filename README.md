@@ -1,8 +1,12 @@
 # prune-stale
 
-A maintenance tool for Pitt CRCD Slurm clusters. It queries all
-pending jobs, cancels any that have been waiting longer than a configurable
-threshold, and emails the submitting user at their `@pitt.edu` address.
+A maintenance tool for canceling stale jobs on Slurm clusters. 
+
+A command-line utility for Slurm administrators that identifies and 
+cancels jobs which have been stuck in the PENDING state for longer
+than a configurable threshold. Affected users are notified by email,
+with all of their cancelled jobs batched into a single message, and
+a dry-run mode is provided for previewing changes before applying them.
 
 ## Install and Setup
 
@@ -12,22 +16,24 @@ Install the utility from the CRCD Python repository using pipx:
 pipx install crc-prune-stale
 ```
 
-Before running for the first time, create the application log directory:
-
-```shell
-sudo mkdir -p /var/log/prune_stale
-```
-
-Confirm the `prune-stale` utility is availible in your runtime environment:
+Confirm the `prune-stale` utility is available in your runtime environment:
 
 ```shell
 prune-stale --help
 ```
 
+Optionally, create the application log directory to enable persistent file
+logging. If the directory is not present, the application will fall back to
+console-only logging:
+
+```shell
+sudo mkdir -p /var/log/prune_stale
+```
+
 ## Usage
 
 ```
-python -m cancel_stale_pending_jobs [OPTIONS]
+prune-stale [OPTIONS]
 ```
 
 ### Pruning options
@@ -41,7 +47,7 @@ python -m cancel_stale_pending_jobs [OPTIONS]
 
 | Option                 | Default                  | Description                                              |
 |------------------------|--------------------------|----------------------------------------------------------|
-| `--smtp-host HOST`     | —                        | SMTP relay hostname (required)                           |
+| `--smtp-host HOST`     | —                        | SMTP relay hostname. Omit to disable email notifications |
 | `--smtp-port PORT`     | `25`                     | SMTP relay port                                          |
 | `--email-from ADDRESS` | `slurm-noreply@pitt.edu` | Sender address for notification emails                   |
 | `--email-dmn DOMAIN`   | `pitt.edu`               | Domain appended to usernames to form recipient addresses |
@@ -50,20 +56,20 @@ Pass `--help` to see all options with their current defaults.
 
 ## Examples
 
-Cancel all jobs that have been pending for more than 10 days and notify their owners:
+Cancel all jobs that have been pending for more than 10 days (no email notification):
 
 ```bash
-python -m cancel_stale_pending_jobs --threshold 10 --smtp-host mailrelay.pitt.edu
+prune-stale --threshold 10
 ```
 
-Preview what would be canceled without making any changes:
+Cancel jobs and issue an email notification to the job submitter:
 
 ```bash
-python -m cancel_stale_pending_jobs --dry-run --smtp-host mailrelay.pitt.edu
+prune-stale --threshold 10 --smtp-host mailrelay.pitt.edu
 ```
 
-To schedule twice daily execution at 10:00 AM/PM, add the following entry to your crontab:
+Preview what would be cancelled without making any changes:
 
-```
-0 10,22 * * * <service-user> python -m cancel_stale_pending_jobs --smtp-host mailrelay.pitt.edu
+```bash
+prune-stale --dry-run
 ```
