@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-__all__ = ["configure_logging"]
+__all__ = ("configure_logging", )
 
 LOG_PATH = Path("/var/log/prune_stale/prune_stale.log")
 LOG_FORMAT = logging.Formatter(

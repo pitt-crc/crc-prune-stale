@@ -5,12 +5,14 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-__all__ = [
+from .shell import run_subprocess
+
+__all__ = (
     "JobRecord",
     "cancel_jobs",
     "fetch_pending_jobs",
     "filter_stale_jobs",
-]
+)
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -35,23 +37,14 @@ def fetch_pending_jobs() -> list[JobRecord]:
         jobs: A list of JobRecord instances, one per pending job.
     """
 
-    command = [
-        "squeue",
-        "--states=PENDING",
-        "--noheader",
-        "--Format=JobID,UserName,SubmitTime,Name,Partition",
-        "--delimiter=|",
-    ]
-
-    logger.debug("Running squeue command: %s", " ".join(command))
-
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        result = run_subprocess([
+            "squeue",
+            "--states=PENDING",
+            "--noheader",
+            "--Format=JobID,UserName,SubmitTime,Name,Partition",
+            "--delimiter=|",
+        ])
 
     except subprocess.CalledProcessError as exc:
         logger.error(
@@ -158,11 +151,8 @@ def _cancel_job(job: JobRecord) -> bool:
         success: True if scancel exited without error, False otherwise.
     """
 
-    command = ["scancel", job.job_id]
-    logger.debug("Running scancel for job %s.", job.job_id)
-
     try:
-        subprocess.run(command, capture_output=True, text=True, check=True)
+        run_subprocess(["scancel", job.job_id])
 
     except subprocess.CalledProcessError as exc:
         logger.error(
