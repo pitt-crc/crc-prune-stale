@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 
 __all__ = [
     "JobRecord",
-    "cancel_job",
+    "cancel_jobs",
     "fetch_pending_jobs",
+    "filter_stale_jobs",
 ]
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
@@ -99,7 +100,55 @@ def fetch_pending_jobs() -> list[JobRecord]:
     return jobs
 
 
-def cancel_job(job: JobRecord) -> bool:
+def filter_stale_jobs(jobs: list[JobRecord], threshold: datetime) -> list[JobRecord]:
+    """Return only the jobs whose submit time falls before the given threshold.
+
+    Args:
+        jobs: The full list of pending jobs to filter.
+        threshold: Cutoff datetime; jobs submitted before this are considered stale.
+
+    Returns:
+        stale: The subset of jobs older than the threshold.
+    """
+
+    stale = [job for job in jobs if job.submit_time < threshold]
+    logger.info("Found %d pending job(s) older than the threshold.", len(stale))
+    return stale
+
+
+def cancel_jobs(jobs: list[JobRecord], *, dry_run: bool = False) -> list[JobRecord]:
+    """Attempt to cancel each job and return the ones that succeeded.
+
+    When dry_run is True, logs what would be cancelled and returns an empty list
+    so that downstream steps (e.g. notifications) produce no side effects.
+
+    Args:
+        jobs: The stale jobs to cancel.
+        dry_run: If True, log intended cancellations without calling scancel.
+
+    Returns:
+        cancelled: Jobs that were successfully cancelled.
+    """
+
+    if dry_run:
+        for job in jobs:
+            logger.info(
+                "Dry run — would cancel job %s submitted by %s on %s.",
+                job.job_id,
+                job.username,
+                job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            )
+        return []
+
+    cancelled: list[JobRecord] = []
+    for job in jobs:
+        if _cancel_job(job):
+            cancelled.append(job)
+
+    return cancelled
+
+
+def _cancel_job(job: JobRecord) -> bool:
     """Cancel a single Slurm job by ID using scancel.
 
     Args:
@@ -123,7 +172,6 @@ def cancel_job(job: JobRecord) -> bool:
             exc.returncode,
             exc.stderr.strip(),
         )
-
         return False
 
     logger.info(
@@ -134,5 +182,4 @@ def cancel_job(job: JobRecord) -> bool:
         job.job_name,
         job.partition,
     )
-
     return True

@@ -6,13 +6,12 @@ delegated to a sibling module.
 """
 
 import logging
-import subprocess
 from datetime import datetime, timedelta, timezone
 
 from .cli import create_parser
-from .log import configure_logging as configure_logging
-from .notify import notify_user
-from .slurm import cancel_job, fetch_pending_jobs
+from .log import configure_logging
+from .notify import notify_users
+from .slurm import cancel_jobs, fetch_pending_jobs, filter_stale_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -22,55 +21,31 @@ def main() -> None:
 
     configure_logging()
     args = create_parser().parse_args()
-
     threshold = datetime.now(tz=timezone.utc) - timedelta(days=args.threshold)
+
     logger.info(
         "Starting stale-job cancellation run (dry_run=%s). Threshold: jobs pending before %s.",
         args.dry_run,
         threshold.strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
 
-    try:
-        all_pending = fetch_pending_jobs()
-
-    except subprocess.CalledProcessError:
-        logger.critical("Could not retrieve pending jobs from squeue. Aborting.")
-        return
-
-    stale_jobs = [job for job in all_pending if job.submit_time < threshold]
-    logger.info("Found %d pending job(s) older than %d days.", len(stale_jobs), args.threshold)
-
-    cancelled_count = 0
-    failed_count = 0
-    for job in stale_jobs:
-        if args.dry_run:
-            logger.info(
-                "Dry run — would cancel job %s submitted by %s on %s.",
-                job.job_id,
-                job.username,
-                job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            )
-            continue
-
-        success = cancel_job(job)
-        if success:
-            cancelled_count += 1
-            notify_user(
-                job,
-                smtp_host=args.smtp_host,
-                smtp_port=args.smtp_port,
-                email_from=args.email_from,
-                email_domain=args.email_dmn,
-                threshold=args.threshold,
-            )
-
-        else:
-            failed_count += 1
+    all_pending = fetch_pending_jobs()
+    stale_jobs = filter_stale_jobs(all_pending, threshold)
+    cancelled_jobs = cancel_jobs(stale_jobs, dry_run=args.dry_run)
+    if not args.dry_run:
+        notify_users(
+            cancelled_jobs,
+            smtp_host=args.smtp_host,
+            smtp_port=args.smtp_port,
+            email_from=args.email_from,
+            email_domain=args.email_dmn,
+            threshold=args.threshold,
+        )
 
     logger.info(
         "Run complete. Cancelled: %d  Errors: %d  Skipped (not stale): %d",
-        cancelled_count,
-        failed_count,
+        len(cancelled_jobs),
+        len(stale_jobs) - len(cancelled_jobs),
         len(all_pending) - len(stale_jobs),
     )
 
