@@ -14,6 +14,7 @@ def _make_job(
     username: str = "testuser",
     job_name: str = "my_job",
     partition: str = "gpu",
+    state: str = "PENDING",
 ) -> JobRecord:
     """Return a `JobRecord` populated with mock data."""
 
@@ -23,6 +24,7 @@ def _make_job(
         submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         job_name=job_name,
         partition=partition,
+        state=state,
     )
 
 

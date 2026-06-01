@@ -1,4 +1,4 @@
-"""Tests for the `notify` module."""
+"""Tests for the `main` module."""
 
 import smtplib
 from datetime import datetime, timezone
@@ -22,6 +22,7 @@ class NotifyUsers(TestCase):
             submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             job_name="my_job",
             partition="gpu",
+            state="PENDING",
         )
 
     @staticmethod
@@ -138,6 +139,7 @@ class NotifyUsers(TestCase):
                 submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 job_name="my_job",
                 partition="gpu",
+                state="PENDING",
             ),
             JobRecord(
                 job_id="2",
@@ -145,6 +147,7 @@ class NotifyUsers(TestCase):
                 submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 job_name="my_job",
                 partition="gpu",
+                state="PENDING",
             ),
             JobRecord(
                 job_id="3",
@@ -152,6 +155,7 @@ class NotifyUsers(TestCase):
                 submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 job_name="my_job",
                 partition="gpu",
+                state="PENDING",
             ),
         ]
         notify_users(
@@ -180,6 +184,7 @@ class NotifyUsers(TestCase):
                 submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 job_name="my_job",
                 partition="gpu",
+                state="PENDING",
             ),
             JobRecord(
                 job_id="2",
@@ -187,6 +192,7 @@ class NotifyUsers(TestCase):
                 submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 job_name="my_job",
                 partition="gpu",
+                state="PENDING",
             ),
         ]
         notify_users(
