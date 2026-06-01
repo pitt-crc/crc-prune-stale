@@ -20,13 +20,7 @@ jobs:
     name: Publish Distribution
     needs: run-tests
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - host: https://py00.crc.pitt.edu
-            environment: publish-h2p
+    environment: publish-h2p
 
     steps:
       - name: Checkout source
@@ -56,6 +50,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
-          repository-url: ${{ matrix.host }}
+          repository-url: https://py00.crc.pitt.edu
           user: ${{ secrets.REPO_USER }}
           password: ${{ secrets.REPO_PASSWORD }}
