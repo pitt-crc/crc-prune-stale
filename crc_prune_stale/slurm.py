@@ -26,10 +26,10 @@ class JobRecord:
 
 
 def fetch_pending_jobs() -> list[JobRecord]:
-    """Query squeue and return all currently pending jobs.
+    """Query `squeue` and return all currently pending jobs.
 
     Returns:
-        jobs: A list of JobRecord instances, one per pending job.
+        jobs: A list with one `JobRecord` instances per pending job.
     """
 
     slurm_cmd = run_subprocess([
@@ -81,10 +81,10 @@ def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
 
     Args:
         job: The JobRecord of the job to cancel.
-        dry_run: If True, log the intended cancellation without calling scancel.
+        dry_run: If `True`, log the intended cancellation without calling scancel.
 
     Returns:
-        success: True if scancel exited without error, or if dry_run is True.
+        success: `True` if `scancel` exited without error, or if `dry_run` is `True`.
     """
 
     if dry_run:

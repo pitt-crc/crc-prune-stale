@@ -148,11 +148,5 @@ class EmailDomainArgument(TestCase):
     def test_email_dmn_strips_leading_at_symbol(self) -> None:
         """Verify a leading `@` is stripped from the domain value."""
 
-        args = self.parser.parse_args(["--email-dmn", "@example.com"])
-        self.assertEqual(args.email_dmn, "example.com", "Leading @ should be stripped from email domain")
-
-    def test_email_dmn_strips_only_leading_at_symbol(self) -> None:
-        """Verify only the leading `@` is stripped, not internal `@` characters."""
-
         args = self.parser.parse_args(["--email-dmn", "@sub.example.com"])
         self.assertEqual(args.email_dmn, "sub.example.com")

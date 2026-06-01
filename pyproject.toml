@@ -9,7 +9,7 @@ description = "Prune stale Slurm jobs from the job queue."
 authors = [{ name = "Pitt-CRCD" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["html2text (>=2025.4.15,<2026.0.0)"]
 
 [tool.poetry.group.tests.dependencies]
 coverage = "*"
