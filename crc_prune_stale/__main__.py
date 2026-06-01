@@ -27,7 +27,7 @@ def run(
     email_from: str,
     email_domain: str,
 ) -> None:
-    """Cancel all pending Slurm jobs exceeding the staleness threshold and notify affected users.
+    """Cancel all pending Slurm jobs exceeding the threshold and notify affected users.
 
     Fetches all pending jobs from Slurm older than the given threshold, cancels
     them, and notifies affected users by email. Notifications are skipped when

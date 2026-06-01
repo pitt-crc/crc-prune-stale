@@ -1,207 +1,162 @@
-"""Tests for the `main` module."""
+"""Unit tests for the `__main__` module."""
 
-import smtplib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from crc_prune_stale.notify import notify_users
+from crc_prune_stale.__main__ import run
 from crc_prune_stale.slurm import JobRecord
 
 
-@patch("smtplib.SMTP")
-class NotifyUsers(TestCase):
-    """Verify the email construction and SMTP behaviour of `notify_users`."""
+@patch("crc_prune_stale.__main__.configure_logging")
+@patch("crc_prune_stale.__main__.fetch_pending_jobs")
+@patch("crc_prune_stale.__main__.cancel_job")
+@patch("crc_prune_stale.__main__.notify_users")
+class RunFunction(TestCase):
+    """Verify the orchestration behaviour of the `run` function."""
 
-    def setUp(self) -> None:
-        """Create test fixtures using mock data."""
+    @staticmethod
+    def _make_job(days_ago: int) -> JobRecord:
+        """Return a `JobRecord` with a submit time the given number of days in the past."""
 
-        self.job = JobRecord(
+        return JobRecord(
             job_id="12345",
             username="testuser",
-            submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            submit_time=datetime.now(tz=timezone.utc) - timedelta(days=days_ago),
             job_name="my_job",
             partition="gpu",
             state="PENDING",
         )
 
-    @staticmethod
-    def _smtp_instance(mock_smtp: MagicMock) -> MagicMock:
-        """Return the mock SMTP instance returned by the `with` context manager."""
+    def _call(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+        **kwargs,
+    ) -> None:
+        """Call `run` with default arguments, allowing overrides."""
 
-        return mock_smtp.return_value.__enter__.return_value
-
-    @staticmethod
-    def _sent_messages(mock_smtp: MagicMock) -> list:
-        """Return all `EmailMessage` objects passed to `send_message`."""
-
-        smtp_instance = mock_smtp.return_value.__enter__.return_value
-        return [call.args[0] for call in smtp_instance.send_message.call_args_list]
-
-    def test_recipient_address_matches_call_args(self, mock_smtp: MagicMock) -> None:
-        """Verify the `To` field is constructed from the username and domain arguments."""
-
-        notify_users(
-            jobs=[self.job],
+        defaults = dict(
+            dry_run=False,
+            threshold=10,
             smtp_host="smtp.example.com",
             smtp_port=25,
             email_from="noreply@example.com",
             email_domain="example.com",
-            threshold=10,
         )
+        run(**{**defaults, **kwargs})
 
-        message = self._sent_messages(mock_smtp)[0]
-        self.assertEqual(message["To"], "testuser@example.com")
+    def test_stale_job_is_cancelled(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify a job older than the threshold is passed to `cancel_job`."""
 
-    def test_sender_address_matches_call_args(self, mock_smtp: MagicMock) -> None:
-        """Verify the `From` field matches the `email_from` argument."""
+        stale_job = self._make_job(days_ago=20)
+        mock_fetch.return_value = [stale_job]
 
-        notify_users(
-            jobs=[self.job],
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
 
-        message = self._sent_messages(mock_smtp)[0]
-        self.assertEqual(message["From"], "noreply@example.com")
+        mock_cancel.assert_called_once_with(stale_job, dry_run=False)
 
-    def test_subject_matches_expected_format(self, mock_smtp: MagicMock) -> None:
-        """Verify the `Subject` field matches the expected format."""
+    def test_fresh_job_is_not_cancelled(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify a job newer than the threshold is not passed to `cancel_job`."""
 
-        notify_users(
-            jobs=[self.job],
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+        mock_fetch.return_value = [self._make_job(days_ago=1)]
 
-        message = self._sent_messages(mock_smtp)[0]
-        self.assertEqual(message["Subject"], "Your pending Slurm job(s) have been cancelled")
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
 
-    def test_body_contains_job_metadata(self, mock_smtp: MagicMock) -> None:
-        """Verify the email body contains the job ID, name, partition, and submit time."""
+        mock_cancel.assert_not_called()
 
-        notify_users(
-            jobs=[self.job],
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+    def test_dry_run_passes_flag_to_cancel_job(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify `cancel_job` is called with `dry_run=True` when dry run is enabled."""
 
-        body = self._sent_messages(mock_smtp)[0].get_content()
-        self.assertIn("12345", body)
-        self.assertIn("my_job", body)
-        self.assertIn("gpu", body)
-        self.assertIn("2024-01-01 12:00:00 UTC", body)
+        stale_job = self._make_job(days_ago=20)
+        mock_fetch.return_value = [stale_job]
 
-    def test_smtp_host_and_port(self, mock_smtp: MagicMock) -> None:
-        """Verify the SMTP client is opened with the provided host and port."""
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, dry_run=True)
 
-        notify_users(
-            jobs=[self.job],
-            smtp_host="mail.pitt.edu",
-            smtp_port=587,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+        mock_cancel.assert_called_once_with(stale_job, dry_run=True)
 
-        mock_smtp.assert_called_with("mail.pitt.edu", 587)
+    def test_notify_called_with_successfully_cancelled_jobs(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify `notify_users` receives only jobs for which `cancel_job` returned `True`."""
 
-    def test_empty_job_list_sends_no_messages(self, mock_smtp: MagicMock) -> None:
-        """Verify no emails are sent when the job list is empty."""
+        stale_job = self._make_job(days_ago=20)
+        mock_fetch.return_value = [stale_job]
+        mock_cancel.return_value = True
 
-        notify_users(
-            jobs=[],
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
 
-        self._smtp_instance(mock_smtp).send_message.assert_not_called()
+        notify_jobs = mock_notify.call_args.kwargs["jobs"]
+        self.assertEqual(notify_jobs, [stale_job])
 
-    def test_one_email_per_user(self, mock_smtp: MagicMock) -> None:
-        """Verify one email is sent per distinct username, regardless of job count."""
+    def test_notify_not_called_after_failed_cancel(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify `notify_users` is not called when `cancel_job` returns `False`."""
 
-        jobs = [
-            JobRecord(
-                job_id="1",
-                username="alice",
-                submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                job_name="my_job",
-                partition="gpu",
-                state="PENDING",
-            ),
-            JobRecord(
-                job_id="2",
-                username="alice",
-                submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                job_name="my_job",
-                partition="gpu",
-                state="PENDING",
-            ),
-            JobRecord(
-                job_id="3",
-                username="bob",
-                submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                job_name="my_job",
-                partition="gpu",
-                state="PENDING",
-            ),
-        ]
-        notify_users(
-            jobs=jobs,
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+        mock_fetch.return_value = [self._make_job(days_ago=20)]
+        mock_cancel.return_value = False
 
-        recipients = sorted(message["To"] for message in self._sent_messages(mock_smtp))
-        self.assertEqual(recipients, ["alice@example.com", "bob@example.com"])
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
 
-    def test_smtp_failure_for_one_user_does_not_block_others(self, mock_smtp: MagicMock) -> None:
-        """Verify an SMTP failure sending to one user does not prevent sending to others."""
+        mock_notify.assert_not_called()
 
-        self._smtp_instance(mock_smtp).send_message.side_effect = [
-            smtplib.SMTPException("boom"),
-            None,
-        ]
-        jobs = [
-            JobRecord(
-                job_id="1",
-                username="alice",
-                submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                job_name="my_job",
-                partition="gpu",
-                state="PENDING",
-            ),
-            JobRecord(
-                job_id="2",
-                username="bob",
-                submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                job_name="my_job",
-                partition="gpu",
-                state="PENDING",
-            ),
-        ]
-        notify_users(
-            jobs=jobs,
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
+    def test_notify_not_called_when_smtp_host_is_none(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify `notify_users` is not called when `smtp_host` is `None`."""
 
-        self.assertEqual(self._smtp_instance(mock_smtp).send_message.call_count, 2)
+        mock_fetch.return_value = [self._make_job(days_ago=20)]
+        mock_cancel.return_value = True
+
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, smtp_host=None)
+
+        mock_notify.assert_not_called()
+
+    def test_notify_not_called_on_dry_run(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify `notify_users` is not called when `dry_run` is `True`."""
+
+        mock_fetch.return_value = [self._make_job(days_ago=20)]
+        mock_cancel.return_value = True
+
+        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, dry_run=True)
+
+        mock_notify.assert_not_called()

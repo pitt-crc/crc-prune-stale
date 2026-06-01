@@ -49,8 +49,7 @@ def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> s
 
     job_count = len(jobs)
     job_noun = "job" if job_count == 1 else "jobs"
-    job_verb = "has" if job_count == 1 else "have"
-    error_verb = "was" if job_count == 1 else "were"
+    job_verb = "was" if job_count == 1 else "were"
 
     header_cells = "".join(
         f'<th style="background:#2c3e50;color:#fff;padding:8px 12px;'
@@ -100,7 +99,7 @@ def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> s
         f"  </p>\n"
         f"\n"
         f"  <p>\n"
-        f"    If you believe your {job_noun} {error_verb} cancelled in error, or if you would\n"
+        f"    If you believe your {job_noun} {job_verb} cancelled in error, or if you would\n"
         f"    like help reviewing your submission and resubmitting it, please open a support\n"
         f"    ticket with the CRCD team.\n"
         f"  </p>\n"
@@ -137,9 +136,8 @@ def _notify_user(
 ) -> None:
     """Send a single notification email listing all canceled jobs for one user.
 
-    The message is sent as a multipart/alternative with a plain-text fallback
-    generated from the HTML body and an HTML primary part so clients that do
-    not render HTML still receive readable content.
+    The message is sent as a multipart HTML message with a plain-text fallback
+    so clients that do not render HTML still receive readable content.
 
     Args:
         username: The Slurm username of the recipient.

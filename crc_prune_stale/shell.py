@@ -9,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_subprocess(command: list[str]) -> subprocess.CompletedProcess:
-    """Run a shell command, log it at DEBUG level, and return the completed process.
-
-    Execution errors are logged and raised.
+    """Run a shell command and return the completed process.
 
     Args:
         command: The command and its arguments as a list of strings.
