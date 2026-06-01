@@ -73,7 +73,6 @@ def fetch_pending_jobs() -> list[JobRecord]:
             state=state.strip(),
         ))
 
-    logger.debug("Found %d pending job(s).", len(jobs))
     return jobs
 
 
@@ -89,11 +88,13 @@ def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
     """
 
     if dry_run:
+        age = datetime.now(tz=timezone.utc) - job.submit_time
         logger.info(
-            "Dry run — would cancel job %s submitted by %s on %s.",
+            "Dry run — would cancel job %s submitted by %s on %s (age: %d days).",
             job.job_id,
             job.username,
             job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            age.days,
         )
 
         return True
