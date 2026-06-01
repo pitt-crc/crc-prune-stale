@@ -162,7 +162,7 @@ def _notify_user(
     message["From"] = email_from
     message["To"] = recipient
     message["Subject"] = subject
-    message.set_content(plain_body)
+    message.set_content(plain_body, cte="7bit")
     message.add_alternative(html_body, subtype="html")
 
     try:
