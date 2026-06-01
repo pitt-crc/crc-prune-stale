@@ -5,22 +5,38 @@ import smtplib
 from collections import defaultdict
 from email.message import EmailMessage
 
+import html2text
+
 from .slurm import JobRecord
 
 __all__ = ("notify_users",)
 
+_TABLE_COLUMNS = ("Job ID", "Job Name", "Partition", "Submitted (UTC)")
+
 logger = logging.getLogger(__name__)
 
 
-def _build_email_body(
-    username: str,
-    jobs: list[JobRecord],
-    threshold: int,
-) -> str:
-    """Render the full plain-text email body including a fixed-width job table.
+def _html_to_plain(html: str) -> str:
+    """Convert an HTML email body to plain text.
 
-    The table uses column widths derived from the widest value in each column
-    so all rows align regardless of job name or partition length.
+    Args:
+        html: A complete HTML document string.
+
+    Returns:
+        plain: A plain-text representation of the HTML content.
+    """
+
+    converter = html2text.HTML2Text()
+    converter.ignore_links = True
+    converter.body_width = 0
+    return converter.handle(html)
+
+
+def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> str:
+    """Render the full HTML email body.
+
+    All styles are inlined so the email renders correctly in clients that strip
+    <style> blocks.
 
     Args:
         username: The Slurm username of the recipient.
@@ -28,51 +44,85 @@ def _build_email_body(
         threshold: Number of pending days stated in the notification body.
 
     Returns:
-        body: A complete plain-text string suitable for use as a MIME fallback.
+        The HTML email content.
     """
 
-    table_columns = ("Job ID", "Job Name", "Partition", "Submitted (UTC)")
-    rows = [
-        (
+    job_count = len(jobs)
+    job_noun = "job" if job_count == 1 else "jobs"
+    job_verb = "has" if job_count == 1 else "have"
+    error_verb = "was" if job_count == 1 else "were"
+
+    header_cells = "".join(
+        f'<th style="background:#2c3e50;color:#fff;padding:8px 12px;'
+        f'text-align:left;white-space:nowrap;">{col}</th>'
+        for col in _TABLE_COLUMNS
+    )
+
+    data_rows = ""
+    for i, job in enumerate(jobs):
+        row_bg = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+        cells = (
             job.job_id,
             job.job_name,
             job.partition,
-            job.submit_time.strftime("%Y-%m-%d %H:%M:%S")
-        ) for job in jobs
-    ]
+            job.submit_time.strftime("%Y-%m-%d %H:%M:%S"),
+        )
 
-    col_widths = [
-        max(len(header), max(len(row[i]) for row in rows))
-        for i, header in enumerate(table_columns)
-    ]
+        data_cells = "".join(
+            f'<td style="padding:7px 12px;border-bottom:1px solid #e0e0e0;'
+            f'white-space:nowrap;font-family:monospace;">{cell}</td>'
+            for cell in cells
+        )
 
-    format_row = lambda cells: "  ".join(cell.ljust(width) for cell, width in zip(cells, col_widths))
-    separator = "  ".join("-" * width for width in col_widths)
-    table = f"{format_row(table_columns)}\n{separator}\n" + "\n".join(format_row(row) for row in rows)
+        data_rows += f'<tr style="background:{row_bg};">{data_cells}</tr>\n'
 
     return (
-        f"Dear {username},\n"
+        f"<!DOCTYPE html>\n"
+        f"<html lang=\"en\">\n"
+        f"<head><meta charset=\"UTF-8\"></head>\n"
+        f"<body style=\"font-family:Arial,sans-serif;font-size:14px;color:#333;\n"
+        f"             max-width:760px;margin:0 auto;padding:24px;\">\n"
         f"\n"
-        f"This is an automated notice that one or more of your CRCD Slurm jobs have been\n"
-        f"cancelled after remaining in a PENDING state for more than {threshold} days\n"
-        f"without being scheduled to run.\n"
+        f"  <p>Dear {username},</p>\n"
         f"\n"
-        f"Jobs that remain pending for an extended period are typically stalled due to\n"
-        f"a resource request that cannot be satisfied. This commonly includes requesting\n"
-        f"more nodes than are available on the partition, or specifying constraints that\n"
-        "no current node can meet. Cancelling these jobs helps keep the scheduler queue\n"
-        "healthy and ensures other users' work can be scheduled efficiently.\n"
+        f"  <p>\n"
+        f"    This is an automated notice that one or more of your CRCD Slurm jobs have been\n"
+        f"    cancelled after remaining in a <strong>PENDING</strong> state for more than\n"
+        f"    {threshold} days without being scheduled to run.\n"
+        f"  </p>\n"
         f"\n"
-        f"If you believe your job was cancelled in error, or if you would like help\n"
-        f"reviewing your submission and resubmitting it, please open a support ticket\n"
-        f"with the CRCD team.\n"
+        f"  <p>\n"
+        f"    Jobs that remain pending for an extended period are typically stalled due to\n"
+        f"    a resource request that cannot be satisfied. This commonly includes requesting\n"
+        f"    more nodes than are available on the partition, or specifying constraints that\n"
+        f"    no current node can meet. Cancelling these jobs helps keep the scheduler queue\n"
+        f"    healthy and ensures other users' work can be scheduled efficiently.\n"
+        f"  </p>\n"
         f"\n"
-        f"A summary of cancelled jobs is provided below:\n"
+        f"  <p>\n"
+        f"    If you believe your {job_noun} {error_verb} cancelled in error, or if you would\n"
+        f"    like help reviewing your submission and resubmitting it, please open a support\n"
+        f"    ticket with the CRCD team.\n"
+        f"  </p>\n"
         f"\n"
-        f"{table}\n"
+        f"  <p style=\"margin-bottom:6px;\"><strong>Cancelled jobs ({job_count}):</strong></p>\n"
         f"\n"
-        f"Best regards,\n"
-        f"Pitt CRCD\n"
+        f"  <table style=\"border-collapse:collapse;width:100%;font-size:13px;\">\n"
+        f"    <thead>\n"
+        f"      <tr>{header_cells}</tr>\n"
+        f"    </thead>\n"
+        f"    <tbody>\n"
+        f"      {data_rows}\n"
+        f"    </tbody>\n"
+        f"  </table>\n"
+        f"\n"
+        f"  <p style=\"margin-top:24px;\">\n"
+        f"    Best regards,<br>\n"
+        f"    Pitt CRCD\n"
+        f"  </p>\n"
+        f"\n"
+        f"</body>\n"
+        f"</html>"
     )
 
 
@@ -88,8 +138,8 @@ def _notify_user(
     """Send a single notification email listing all canceled jobs for one user.
 
     The message is sent as a multipart/alternative with a plain-text fallback
-    and an HTML primary part so clients that do not render HTML still receive
-    readable content.
+    generated from the HTML body and an HTML primary part so clients that do
+    not render HTML still receive readable content.
 
     Args:
         username: The Slurm username of the recipient.
@@ -105,13 +155,15 @@ def _notify_user(
 
     recipient = f"{username}@{email_domain}"
     subject = "Your pending Slurm job(s) have been cancelled"
-    plain_body = _build_email_body(username, jobs, threshold)
+    html_body = _build_email_body(username, jobs, threshold)
+    plain_body = _html_to_plain(html_body)
 
     message = EmailMessage()
     message["From"] = email_from
     message["To"] = recipient
     message["Subject"] = subject
     message.set_content(plain_body)
+    message.add_alternative(html_body, subtype="html")
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as smtp:
