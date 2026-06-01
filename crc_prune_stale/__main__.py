@@ -60,7 +60,7 @@ def run(
 
     if smtp_host and not dry_run:
         notify_users(
-            cancelled_jobs,
+            jobs=cancelled_jobs,
             smtp_host=smtp_host,
             smtp_port=smtp_port,
             email_from=email_from,

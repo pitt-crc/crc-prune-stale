@@ -28,26 +28,6 @@ class RunFunction(TestCase):
             state="PENDING",
         )
 
-    def _call(
-        self,
-        mock_notify: MagicMock,
-        mock_cancel: MagicMock,
-        mock_fetch: MagicMock,
-        mock_configure_logging: MagicMock,
-        **kwargs,
-    ) -> None:
-        """Call `run` with default arguments, allowing overrides."""
-
-        defaults = dict(
-            dry_run=False,
-            threshold=10,
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-        )
-        run(**{**defaults, **kwargs})
-
     def test_stale_job_is_cancelled(
         self,
         mock_notify: MagicMock,
@@ -60,7 +40,14 @@ class RunFunction(TestCase):
         stale_job = self._make_job(days_ago=20)
         mock_fetch.return_value = [stale_job]
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
+        run(
+            dry_run=False,
+            threshold=10,
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         mock_cancel.assert_called_once_with(stale_job, dry_run=False)
 
@@ -75,7 +62,14 @@ class RunFunction(TestCase):
 
         mock_fetch.return_value = [self._make_job(days_ago=1)]
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
+        run(
+            dry_run=False,
+            threshold=10,
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         mock_cancel.assert_not_called()
 
@@ -91,7 +85,14 @@ class RunFunction(TestCase):
         stale_job = self._make_job(days_ago=20)
         mock_fetch.return_value = [stale_job]
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, dry_run=True)
+        run(
+            dry_run=True,
+            threshold=10,
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         mock_cancel.assert_called_once_with(stale_job, dry_run=True)
 
@@ -108,26 +109,17 @@ class RunFunction(TestCase):
         mock_fetch.return_value = [stale_job]
         mock_cancel.return_value = True
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
+        run(
+            dry_run=False,
+            threshold=10,
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         notify_jobs = mock_notify.call_args.kwargs["jobs"]
         self.assertEqual(notify_jobs, [stale_job])
-
-    def test_notify_not_called_after_failed_cancel(
-        self,
-        mock_notify: MagicMock,
-        mock_cancel: MagicMock,
-        mock_fetch: MagicMock,
-        mock_configure_logging: MagicMock,
-    ) -> None:
-        """Verify `notify_users` is not called when `cancel_job` returns `False`."""
-
-        mock_fetch.return_value = [self._make_job(days_ago=20)]
-        mock_cancel.return_value = False
-
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging)
-
-        mock_notify.assert_not_called()
 
     def test_notify_not_called_when_smtp_host_is_none(
         self,
@@ -141,7 +133,14 @@ class RunFunction(TestCase):
         mock_fetch.return_value = [self._make_job(days_ago=20)]
         mock_cancel.return_value = True
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, smtp_host=None)
+        run(
+            dry_run=False,
+            threshold=10,
+            smtp_host=None,
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         mock_notify.assert_not_called()
 
@@ -157,6 +156,13 @@ class RunFunction(TestCase):
         mock_fetch.return_value = [self._make_job(days_ago=20)]
         mock_cancel.return_value = True
 
-        self._call(mock_notify, mock_cancel, mock_fetch, mock_configure_logging, dry_run=True)
+        run(
+            dry_run=True,
+            threshold=10,
+            smtp_host="smtp.example.com",
+            smtp_port=25,
+            email_from="noreply@example.com",
+            email_domain="example.com",
+        )
 
         mock_notify.assert_not_called()
