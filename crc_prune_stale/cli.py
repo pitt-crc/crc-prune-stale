@@ -12,7 +12,7 @@ __all__ = (
 
 DEFAULT_THRESHOLD = 10  # Days
 DEFAULT_SMTP_PORT = 25
-DEFAULT_EMAIL_FROM = "slurm-noreply@pitt.edu"
+DEFAULT_EMAIL_FROM = "slurm-noreply@crc.pitt.edu"
 DEFAULT_APPEND_DOMAIN = "pitt.edu"
 
 
