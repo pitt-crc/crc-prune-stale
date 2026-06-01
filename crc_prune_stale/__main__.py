@@ -68,12 +68,21 @@ def run(
             threshold=threshold,
         )
 
-    logger.info(
-        "Run complete. Cancelled: %d  Errors: %d  Skipped (not stale): %d",
-        len(cancelled_jobs),
-        len(stale_jobs) - len(cancelled_jobs),
-        len(all_pending) - len(stale_jobs),
-    )
+    if dry_run:
+        logger.info(
+            "Dry run complete. Would have cancelled: %d  Errors: %d  Skipped (not stale): %d",
+            len(cancelled_jobs),
+            len(stale_jobs) - len(cancelled_jobs),
+            len(all_pending) - len(stale_jobs),
+        )
+
+    else:
+        logger.info(
+            "Run complete. Cancelled: %d  Errors: %d  Skipped (not stale): %d",
+            len(cancelled_jobs),
+            len(stale_jobs) - len(cancelled_jobs),
+            len(all_pending) - len(stale_jobs),
+        )
 
 
 def main() -> None:
