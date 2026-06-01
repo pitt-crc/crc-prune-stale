@@ -26,7 +26,15 @@ def run_subprocess(command: list[str]) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(command, capture_output=True, text=True, check=True)
 
-    except Exception as exc:
-        logger.error("Command %r exited with error: %s", cmd_str, exc)
+    except subprocess.CalledProcessError as exc:
+        logger.error(
+            "Command %r exited with status %d: %s",
+            cmd_str,
+            exc.returncode,
+            exc.stderr.strip() or "<no stderr output>",
+        )
+        raise
 
+    except Exception as exc:
+        logger.error("Command %r failed: %s", cmd_str, exc)
         raise
