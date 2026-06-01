@@ -1,7 +1,8 @@
-"""Tests for the `notify` module."""
+"""Unit tests for the `notify` module."""
 
 import smtplib
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
@@ -26,6 +27,26 @@ def _make_job(
         partition=partition,
         state=state,
     )
+
+
+def _get_plain_body(message: EmailMessage) -> str:
+    """Return the plain-text body from a multipart email message."""
+
+    for part in message.walk():
+        if part.get_content_type() == "text/plain":
+            return part.get_content()
+
+    return ""
+
+
+def _get_html_body(message: EmailMessage) -> str:
+    """Return the HTML body from a multipart email message."""
+
+    for part in message.walk():
+        if part.get_content_type() == "text/html":
+            return part.get_content()
+
+    return ""
 
 
 class NotifyUsers(TestCase):
@@ -86,21 +107,45 @@ class NotifyUsers(TestCase):
         message = self._sent_messages()[0]
         self.assertEqual(message["Subject"], "Your pending Slurm job(s) have been cancelled")
 
-    def test_body_contains_job_metadata(self) -> None:
-        """Verify the email body contains the job ID, name, partition, and submit time."""
+    def test_message_is_multipart_alternative(self) -> None:
+        """Verify the sent message uses multipart/alternative encoding."""
 
         self._call()
-        body = self._sent_messages()[0].get_content()
+        message = self._sent_messages()[0]
+        self.assertEqual(message.get_content_type(), "multipart/alternative")
+
+    def test_plain_body_contains_job_metadata(self) -> None:
+        """Verify the plain-text part contains the job ID, name, partition, and submit time."""
+
+        self._call()
+        body = _get_plain_body(self._sent_messages()[0])
         self.assertIn("12345", body)
         self.assertIn("my_job", body)
         self.assertIn("gpu", body)
-        self.assertIn("2024-01-01 12:00:00 UTC", body)
+        self.assertIn("2024-01-01 12:00:00", body)
 
-    def test_body_contains_threshold(self) -> None:
-        """Verify the email body references the configured threshold."""
+    def test_html_body_contains_job_metadata(self) -> None:
+        """Verify the HTML part contains the job ID, name, partition, and submit time."""
+
+        self._call()
+        body = _get_html_body(self._sent_messages()[0])
+        self.assertIn("12345", body)
+        self.assertIn("my_job", body)
+        self.assertIn("gpu", body)
+        self.assertIn("2024-01-01 12:00:00", body)
+
+    def test_plain_body_contains_threshold(self) -> None:
+        """Verify the plain-text part references the configured threshold."""
 
         self._call(threshold=14)
-        body = self._sent_messages()[0].get_content()
+        body = _get_plain_body(self._sent_messages()[0])
+        self.assertIn("14 days", body)
+
+    def test_html_body_contains_threshold(self) -> None:
+        """Verify the HTML part references the configured threshold."""
+
+        self._call(threshold=14)
+        body = _get_html_body(self._sent_messages()[0])
         self.assertIn("14 days", body)
 
     def test_smtp_connected_with_host_and_port(self) -> None:
@@ -156,7 +201,7 @@ class NotifyUsers(TestCase):
         messages = self._sent_messages()
         self.assertEqual(len(messages), 1, "alice should receive exactly one email")
 
-        body = messages[0].get_content()
+        body = _get_plain_body(messages[0])
         self.assertIn("111", body)
         self.assertIn("222", body)
         self.assertIn("train", body)
