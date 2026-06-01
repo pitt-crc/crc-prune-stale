@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 from crc_prune_stale.slurm import cancel_job, fetch_pending_jobs, JobRecord
 
+PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
+
 
 class FetchPendingJobs(TestCase):
     """Verify the subprocess call and output parsing behaviour of `fetch_pending_jobs`."""
@@ -38,7 +40,7 @@ class FetchPendingJobs(TestCase):
 
         args = self.mock_run.call_args[0][0]
         self.assertEqual(args[0], "squeue")
-        self.assertIn("--states=PENDING", args)
+        self.assertIn("--state=PENDING", args)
         self.assertIn("--noheader", args)
 
     def test_raises_on_subprocess_error(self) -> None:
@@ -52,9 +54,7 @@ class FetchPendingJobs(TestCase):
     def test_returns_list_of_job_records(self) -> None:
         """Verify a valid squeue line is parsed into a `JobRecord`."""
 
-        self.mock_run.return_value = self._make_result(
-            "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
-        )
+        self.mock_run.return_value = self._make_result(PENDING_LINE)
 
         jobs = fetch_pending_jobs()
         self.assertEqual(len(jobs), 1)
@@ -63,9 +63,7 @@ class FetchPendingJobs(TestCase):
     def test_parses_job_fields_correctly(self) -> None:
         """Verify all fields of a parsed `JobRecord` match the squeue output."""
 
-        self.mock_run.return_value = self._make_result(
-            "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
-        )
+        self.mock_run.return_value = self._make_result(PENDING_LINE)
 
         job = fetch_pending_jobs()[0]
         self.assertEqual(job.job_id, "12345")
@@ -73,13 +71,14 @@ class FetchPendingJobs(TestCase):
         self.assertEqual(job.submit_time, datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
         self.assertEqual(job.job_name, "my_job")
         self.assertEqual(job.partition, "gpu")
+        self.assertEqual(job.state, "PENDING")
 
     def test_parses_multiple_jobs(self) -> None:
         """Verify multiple output lines are each parsed into a `JobRecord`."""
 
         self.mock_run.return_value = self._make_result(
-            "12345|testuser|2024-01-01T12:00:00|my_job|gpu\n"
-            "67890|otheruser|2024-02-01T08:00:00|other_job|cpu\n"
+            "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
+            "67890|otheruser|2024-02-01T08:00:00|other_job|cpu|PENDING\n"
         )
 
         self.assertEqual(len(fetch_pending_jobs()), 2)
@@ -94,7 +93,7 @@ class FetchPendingJobs(TestCase):
         """Verify blank lines in squeue output are ignored."""
 
         self.mock_run.return_value = self._make_result(
-            "\n12345|testuser|2024-01-01T12:00:00|my_job|gpu\n\n"
+            f"\n{PENDING_LINE}\n"
         )
 
         self.assertEqual(len(fetch_pending_jobs()), 1)
@@ -112,7 +111,7 @@ class FetchPendingJobs(TestCase):
         """Verify lines with an invalid submit time are skipped."""
 
         self.mock_run.return_value = self._make_result(
-            "12345|testuser|not-a-date|my_job|gpu\n"
+            "12345|testuser|not-a-date|my_job|gpu|PENDING\n"
         )
 
         self.assertEqual(fetch_pending_jobs(), [])
@@ -121,13 +120,14 @@ class FetchPendingJobs(TestCase):
         """Verify leading and trailing whitespace is stripped from each field."""
 
         self.mock_run.return_value = self._make_result(
-            " 12345 | testuser | 2024-01-01T12:00:00 | my_job | gpu \n"
+            " 12345 | testuser | 2024-01-01T12:00:00 | my_job | gpu | PENDING \n"
         )
 
         job = fetch_pending_jobs()[0]
         self.assertEqual(job.job_id, "12345")
         self.assertEqual(job.username, "testuser")
         self.assertEqual(job.partition, "gpu")
+        self.assertEqual(job.state, "PENDING")
 
 
 class CancelJob(TestCase):
@@ -142,6 +142,7 @@ class CancelJob(TestCase):
             submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             job_name="my_job",
             partition="gpu",
+            state="PENDING",
         )
 
         self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
@@ -167,9 +168,15 @@ class CancelJob(TestCase):
         self.assertTrue(cancel_job(self.job))
 
     def test_returns_false_on_subprocess_error(self) -> None:
-        """Verify `False` is returned when scancel raises a `CalledProcessError`."""
+        """Verify `False` is returned when scancel raises an exception."""
 
         self.mock_run.side_effect = subprocess.CalledProcessError(1, "scancel", stderr="error")
+        self.assertFalse(cancel_job(self.job))
+
+    def test_returns_false_on_non_subprocess_error(self) -> None:
+        """Verify `False` is returned when scancel raises a non-subprocess exception."""
+
+        self.mock_run.side_effect = OSError("command not found")
         self.assertFalse(cancel_job(self.job))
 
     def test_dry_run_does_not_invoke_scancel(self) -> None:
@@ -177,3 +184,8 @@ class CancelJob(TestCase):
 
         cancel_job(self.job, dry_run=True)
         self.mock_run.assert_not_called()
+
+    def test_dry_run_returns_true(self) -> None:
+        """Verify `True` is returned when `dry_run` is True."""
+
+        self.assertTrue(cancel_job(self.job, dry_run=True))
