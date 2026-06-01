@@ -73,9 +73,7 @@ def _notify_user(
 
     recipient = f"{username}@{email_domain}"
     job_count = len(jobs)
-    subject = (
-        f"Pending Slurm jobs cancelled"
-    )
+    subject = "Your pending Slurm job(s) have been cancelled"
 
     job_lines = "\n".join(
         f"  Job ID   : {job.job_id}\n"
@@ -86,13 +84,26 @@ def _notify_user(
     )
 
     body = (
-        f"Dear {username},\n\n"
-        f"The following Slurm job(s) have been automatically cancelled because they\n"
-        f"remained in the PENDING state for more than {threshold} days without starting.\n\n"
-        f"{job_lines}\n"
-        f"If you believe any of these cancellations were in error, or if you require\n"
-        f"assistance re-submitting your jobs, please submit a CRCD support ticket.\n\n"
-        f"Yours,\n"
+        f"Dear {username},\n"
+        f"\n"
+        f"This is an automated notice that one or more of your CRCD Slurm jobs have been\n"
+        f"cancelled after remaining in a PENDING state for more than {threshold} days\n"
+        f"without being scheduled to run.\n"
+        f"\n"
+        f"Jobs that remain pending for an extended period are typically stalled due to\n"
+        f"a resource request that cannot be satisfied - for example, requesting more\n"
+        f"nodes, memory, or GPUs than are available on the partition, or specifying\n"
+        f"constraints that no current node can meet. Cancelling these jobs helps keep\n"
+        f"the scheduler queue healthy and ensures other users' work can be scheduled\n"
+        f"efficiently.\n"
+        f"\n"
+        f"If you believe your job was cancelled in error, or if you would like help\n"
+        f"reviewing your submission and resubmitting it, please open a support ticket\n"
+        f"with the CRCD team.\n"
+        f"\n"
+        f"{job_lines}"
+        f"\n"
+        f"Best regards,\n"
         f"Pitt CRCD\n"
     )
 

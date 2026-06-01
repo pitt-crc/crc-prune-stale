@@ -80,7 +80,7 @@ class NotifyUsers(TestCase):
         )
 
         message = self._sent_messages(mock_smtp)[0]
-        self.assertEqual(message["Subject"], "Pending Slurm jobs cancelled")
+        self.assertEqual(message["Subject"], "Your pending Slurm job(s) have been cancelled")
 
     def test_body_contains_job_metadata(self, mock_smtp: MagicMock) -> None:
         """Verify the email body contains the job ID, name, partition, and submit time."""
