@@ -22,6 +22,7 @@ class JobRecord:
     submit_time: datetime
     job_name: str
     partition: str
+    state: str
 
 
 def fetch_pending_jobs() -> list[JobRecord]:
@@ -33,10 +34,9 @@ def fetch_pending_jobs() -> list[JobRecord]:
 
     slurm_cmd = run_subprocess([
         "squeue",
-        "--states=PENDING",
+        "--state=PENDING",
         "--noheader",
-        "--Format=JobID,UserName,SubmitTime,Name,Partition",
-        "--delimiter=|",
+        "--format=%i|%u|%V|%j|%P|%T",
     ])
 
     jobs: list[JobRecord] = []
@@ -46,11 +46,11 @@ def fetch_pending_jobs() -> list[JobRecord]:
             continue
 
         parts = line.split("|")
-        if len(parts) != 5:
+        if len(parts) != 6:
             logger.warning("Skipping malformed squeue output line: %r", line)
             continue
 
-        job_id, username, submit_time_str, job_name, partition = parts
+        job_id, username, submit_time_str, job_name, partition, state = parts
         try:
             submit_time = datetime.strptime(
                 submit_time_str.strip(), SLURM_TIME_FORMAT
@@ -70,6 +70,7 @@ def fetch_pending_jobs() -> list[JobRecord]:
             submit_time=submit_time,
             job_name=job_name.strip(),
             partition=partition.strip(),
+            state=state.strip(),
         ))
 
     logger.debug("Found %d pending job(s).", len(jobs))
@@ -101,7 +102,7 @@ def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
     try:
         run_subprocess(["scancel", job.job_id])
 
-    except:
+    except Exception:
         return False
 
     logger.info(
