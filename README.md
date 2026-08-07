@@ -1,4 +1,4 @@
-# crc-prune-stale
+# Slurm Job Pruning 
 
 A maintenance tool for canceling stale jobs on Slurm clusters. 
 
