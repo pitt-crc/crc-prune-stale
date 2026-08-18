@@ -5,7 +5,7 @@ A maintenance tool for canceling stale jobs on Slurm clusters.
 A command-line utility for Slurm administrators that identifies and 
 cancels jobs which have been stuck in the PENDING state for longer
 than a configurable threshold. Affected users are notified by email,
-with all of their cancelled jobs batched into a single message, and
+with all of their canceled jobs batched into a single message, and
 a dry-run mode is provided for previewing changes before applying them.
 
 ## Install and Setup
@@ -68,7 +68,7 @@ Cancel jobs and issue an email notification to the job submitter:
 prune-stale --threshold 10 --smtp-host mailrelay.pitt.edu
 ```
 
-Preview what would be cancelled without making any changes:
+Preview what would be canceled without making any changes:
 
 ```bash
 prune-stale --dry-run
