@@ -22,6 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     environment: publish-h2p
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: https://py00.crc.pitt.edu
+            environment: publish-h2p
+          - host: https://upload.pypi.org/legacy/
+            environment: publish-pypi
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v7
@@ -50,6 +59,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
-          repository-url: https://py00.crc.pitt.edu
+          repository-url: ${{ matrix.host }}
           user: ${{ secrets.REPO_USER }}
           password: ${{ secrets.REPO_PASSWORD }}
