@@ -38,11 +38,11 @@ def create_parser(default_cluster: str, exit_on_error: bool = True) -> ArgumentP
 
     targeting.add_argument(
         "--cluster", metavar="NAME", default=default_cluster,
-        help="name of the cluster to query.")
+        help="name of the cluster to cancel jobs on.")
 
     targeting.add_argument(
         "--partition", metavar="NAME", nargs="+", dest="partitions", default=None,
-        help="one or more partition names to query. Defaults to all partitions on the cluster.")
+        help="only cancel jobs on the given partitions, or omit to include all partitions.")
 
     pruning = parser.add_argument_group("pruning", "Controls which jobs are selected for cancellation.")
 
