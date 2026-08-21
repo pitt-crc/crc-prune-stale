@@ -14,8 +14,8 @@ class RunSubprocess(TestCase):
 
         result = run_subprocess(["echo", "hello"])
         self.assertIsInstance(result, subprocess.CompletedProcess)
-        self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "hello")
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("hello", result.stdout.strip())
 
     def test_raises_called_process_error_on_nonzero_exit(self) -> None:
         """Verify a command that exits with a nonzero status raises `CalledProcessError`."""

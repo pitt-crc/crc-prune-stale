@@ -91,28 +91,28 @@ class NotifyUsers(TestCase):
 
         self._call()
         message = self._sent_messages()[0]
-        self.assertEqual(message["To"], "testuser@example.com")
+        self.assertEqual("testuser@example.com", message["To"])
 
     def test_sender_address_matches_email_from_argument(self) -> None:
         """Verify the `From` field matches the `email_from` argument."""
 
         self._call()
         message = self._sent_messages()[0]
-        self.assertEqual(message["From"], "noreply@example.com")
+        self.assertEqual("noreply@example.com", message["From"])
 
     def test_subject_matches_expected_format(self) -> None:
         """Verify the `Subject` field matches the expected format exactly."""
 
         self._call()
         message = self._sent_messages()[0]
-        self.assertEqual(message["Subject"], "Your pending Slurm job(s) have been cancelled")
+        self.assertEqual("Your pending Slurm job(s) have been cancelled", message["Subject"])
 
     def test_message_is_multipart_alternative(self) -> None:
         """Verify the sent message uses multipart/alternative encoding."""
 
         self._call()
         message = self._sent_messages()[0]
-        self.assertEqual(message.get_content_type(), "multipart/alternative")
+        self.assertEqual("multipart/alternative", message.get_content_type())
 
     def test_plain_body_contains_job_metadata(self) -> None:
         """Verify the plain-text part contains the job ID, name, partition, and submit time."""
@@ -187,7 +187,7 @@ class NotifyUsers(TestCase):
         self._call(jobs=jobs)
 
         recipients = sorted(message["To"] for message in self._sent_messages())
-        self.assertEqual(recipients, ["alice@example.com", "bob@example.com"])
+        self.assertEqual(["alice@example.com", "bob@example.com"], recipients)
 
     def test_multiple_jobs_per_user_appear_in_single_message(self) -> None:
         """Verify all of a user's jobs are listed in their single notification email."""
@@ -199,7 +199,7 @@ class NotifyUsers(TestCase):
         self._call(jobs=jobs)
 
         messages = self._sent_messages()
-        self.assertEqual(len(messages), 1, "alice should receive exactly one email")
+        self.assertEqual(1, len(messages), "alice should receive exactly one email")
 
         body = _get_plain_body(messages[0])
         self.assertIn("111", body)
@@ -223,4 +223,4 @@ class NotifyUsers(TestCase):
 
         self._call(jobs=jobs)
 
-        self.assertEqual(self.mock_smtp_instance.send_message.call_count, 2)
+        self.assertEqual(2, self.mock_smtp_instance.send_message.call_count)
