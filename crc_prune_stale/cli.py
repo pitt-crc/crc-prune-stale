@@ -29,30 +29,30 @@ def create_parser(default_cluster: str, exit_on_error: bool = True) -> ArgumentP
 
     parser = ArgumentParser(
         prog="prune-stale",
-        description="cancel Slurm jobs that have been in a given state for longer than a given threshold.",
+        description="Cancel Slurm jobs that have been PENDING for longer than a given threshold.",
         exit_on_error=exit_on_error,
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
 
-    targeting = parser.add_argument_group("targeting", "Controls which cluster and partitions are queried.")
+    targeting = parser.add_argument_group("targeting", "Controls which cluster and partitions are queried for jobs.")
 
     targeting.add_argument(
         "--cluster", metavar="NAME", default=default_cluster,
-        help="name of the cluster to cancel jobs on.")
+        help="cluster name to query for jobs.")
 
     targeting.add_argument(
         "--partition", metavar="NAME", nargs="+", dest="partitions", default=None,
-        help="only cancel jobs on the given partitions, or omit to include all partitions.")
+        help="partition names to query for jobs. Omit for all partitions.")
 
-    pruning = parser.add_argument_group("pruning", "Controls which jobs are selected for cancellation.")
+    cancelling = parser.add_argument_group("cancelling", "Controls which jobs are selected for cancellation.")
 
-    pruning.add_argument(
+    cancelling.add_argument(
         "--dry-run", action="store_true",
-        help="log which jobs would be cancelled without actually canceling them.")
+        help="log stale jobs without actually canceling them.")
 
-    pruning.add_argument(
+    cancelling.add_argument(
         "--threshold", metavar="DAYS", type=int, default=DEFAULT_THRESHOLD,
-        help="number of days a job must have been pending before it is cancelled.")
+        help="number of days a job must be pending before it is cancelled.")
 
     notifications = parser.add_argument_group("notifications", "Controls outbound email notifications.")
 
