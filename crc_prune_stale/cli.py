@@ -33,6 +33,16 @@ def create_parser(exit_on_error: bool = True) -> ArgumentParser:
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
 
+    targeting = parser.add_argument_group("targeting", "Controls which cluster and partitions are queried.")
+
+    targeting.add_argument(
+        "--cluster", metavar="NAME", default=None,
+        help="name of the cluster to query. Omit to use the local node configuration.")
+
+    targeting.add_argument(
+        "--partition", metavar="NAME", nargs="+", dest="partitions", default=None,
+        help="one or more partition names to query. Omit to use the local node configuration.")
+
     pruning = parser.add_argument_group("pruning", "Controls which jobs are selected for cancellation.")
 
     pruning.add_argument(
