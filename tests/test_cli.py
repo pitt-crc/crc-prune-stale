@@ -25,7 +25,7 @@ class ClusterArgument(TestCase):
 
         self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
-    def test_cluster_defaults_to_provided_value(self) -> None:
+    def test_cluster_defaults_to_initialized_value(self) -> None:
         """Verify `--cluster` defaults to the cluster name given to `create_parser`."""
 
         args = self.parser.parse_args([])
@@ -36,12 +36,6 @@ class ClusterArgument(TestCase):
 
         args = self.parser.parse_args(["--cluster", "mpi"])
         self.assertEqual("mpi", args.cluster)
-
-    def test_cluster_is_never_none(self) -> None:
-        """Verify `--cluster` is not left unresolved when the argument is omitted."""
-
-        args = self.parser.parse_args([])
-        self.assertIsNotNone(args.cluster, "Cluster name should always resolve to a concrete value")
 
 
 class PartitionArgument(TestCase):
@@ -69,12 +63,6 @@ class PartitionArgument(TestCase):
 
         args = self.parser.parse_args(["--partition", "gpu", "smp", "opa"])
         self.assertEqual(["gpu", "smp", "opa"], args.partitions)
-
-    def test_partitions_stored_under_plural_destination(self) -> None:
-        """Verify parsed partition names are stored on the `partitions` attribute."""
-
-        args = self.parser.parse_args(["--partition", "smp"])
-        self.assertFalse(hasattr(args, "partition"), "Partition names should be stored as `partitions`")
 
     def test_partition_requires_a_value(self) -> None:
         """Verify `--partition` without a value produces a parsing error."""

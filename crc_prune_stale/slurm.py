@@ -10,7 +10,6 @@ __all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_pending_jobs"
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 CLUSTER_CONFIG_KEY = "ClusterName"
-CLUSTER_BANNER_PREFIX = "CLUSTER:"
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +78,7 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
     jobs: list[JobRecord] = []
     for line in slurm_cmd.stdout.splitlines():
         line = line.strip()
-        if not line or line.startswith(CLUSTER_BANNER_PREFIX):
+        if not line:
             continue
 
         parts = line.split("|")

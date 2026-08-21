@@ -99,7 +99,7 @@ def main() -> None:
     """Invoke the cancellation pipeline and handle top-level exceptions.
 
     The primary application entry point. Initializes application logging, parses
-    commandline arguments, and executes the `run` command with appropriate arguments.
+    commandline arguments, and executes the `run` function with appropriate arguments.
     """
 
     configure_logging()
