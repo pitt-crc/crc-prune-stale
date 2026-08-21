@@ -16,12 +16,11 @@ DEFAULT_EMAIL_FROM = "slurm-noreply@crc.pitt.edu"
 DEFAULT_APPEND_DOMAIN = "pitt.edu"
 
 
-def create_parser(default_cluster: str, default_partitions: list[str], exit_on_error: bool = True) -> ArgumentParser:
+def create_parser(default_cluster: str, exit_on_error: bool = True) -> ArgumentParser:
     """Create the application argument parser.
 
     Args:
         default_cluster: Cluster name used when the `--cluster` argument is omitted.
-        default_partitions: Partition names used when the `--partition` argument is omitted.
         exit_on_error: Whether to exit the Python runtime when a parsing error occurs.
 
     Returns:
@@ -42,8 +41,8 @@ def create_parser(default_cluster: str, default_partitions: list[str], exit_on_e
         help="name of the cluster to query.")
 
     targeting.add_argument(
-        "--partition", metavar="NAME", nargs="+", dest="partitions", default=default_partitions,
-        help="one or more partition names to query.")
+        "--partition", metavar="NAME", nargs="+", dest="partitions", default=None,
+        help="one or more partition names to query. Defaults to all partitions on the cluster.")
 
     pruning = parser.add_argument_group("pruning", "Controls which jobs are selected for cancellation.")
 

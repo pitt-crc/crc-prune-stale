@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from .cli import create_parser
 from .log import configure_logging
 from .notify import notify_users
-from .slurm import cancel_job, fetch_cluster_name, fetch_partition_names, fetch_pending_jobs
+from .slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs
 
 __all__ = ("main", "run")
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def run(
     *,
     cluster: str,
-    partitions: list[str],
+    partitions: list[str] | None,
     dry_run: bool,
     threshold: int,
     smtp_host: str | None,
@@ -37,7 +37,7 @@ def run(
 
     Args:
         cluster: Name of the cluster to query.
-        partitions: Names of the partitions to query.
+        partitions: Names of the partitions to query, or `None` for all partitions.
         dry_run: If True, log intended cancellations without calling scancel.
         threshold: Number of days a job must have been pending before cancellation.
         smtp_host: Hostname of the SMTP server, or `None` to disable notifications.
@@ -46,8 +46,13 @@ def run(
         email_domain: Domain appended to usernames when constructing recipient addresses.
     """
 
+    logger.info(
+        "Targeting cluster %s, partition(s) %s.",
+        cluster,
+        ", ".join(partitions) if partitions else "all",
+    )
+
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=threshold)
-    logger.info("Targeting cluster %s, partition(s) %s.", cluster, ", ".join(partitions))
     logger.info(
         "Cancelling jobs pending since before %s (dry_run=%s).",
         cutoff.strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -101,8 +106,7 @@ def main() -> None:
 
     try:
         default_cluster = fetch_cluster_name()
-        default_partitions = fetch_partition_names()
-        parser = create_parser(default_cluster, default_partitions)
+        parser = create_parser(default_cluster)
 
         args = parser.parse_args()
         run(

@@ -64,30 +64,6 @@ def fetch_cluster_name() -> str:
     raise RuntimeError("Could not determine the cluster name from the local Slurm configuration")
 
 
-def fetch_partition_names(cluster: str | None = None) -> list[str]:
-    """Query `sinfo` and return the names of all partitions on a cluster.
-
-    Arguments left as `None` are omitted from the `sinfo` call, deferring to the
-    default Slurm configuration of the local node.
-
-    Args:
-        cluster: The name of the cluster to query.
-
-    Returns:
-        partitions: The names of every partition on the cluster, in the order reported by Slurm.
-    """
-
-    sinfo_args = ["sinfo", "--noheader", "--format=%R"]
-    if cluster:
-        sinfo_args.append(f"--clusters={cluster}")
-
-    slurm_cmd = run_subprocess(sinfo_args)
-
-    # Slurm reports a partition once per node state grouping, so names repeat
-    names = [line.strip() for line in slurm_cmd.stdout.splitlines() if _is_partition_name(line)]
-    return list(dict.fromkeys(names))
-
-
 def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None = None) -> list[JobRecord]:
     """Query `squeue` and return all currently pending jobs.
 

@@ -6,7 +6,6 @@ from unittest import TestCase
 from crc_prune_stale.cli import *
 
 DEFAULT_CLUSTER = "development"
-DEFAULT_PARTITIONS = ["partition1", "partition2"]
 
 
 class ParserConfig(TestCase):
@@ -15,7 +14,7 @@ class ParserConfig(TestCase):
     def test_parser_prog_name(self) -> None:
         """Verify the parser program name is set to `prune-stale`."""
 
-        self.assertEqual("prune-stale", create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS).prog)
+        self.assertEqual("prune-stale", create_parser(DEFAULT_CLUSTER).prog)
 
 
 class ClusterArgument(TestCase):
@@ -24,7 +23,7 @@ class ClusterArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_cluster_defaults_to_provided_value(self) -> None:
         """Verify `--cluster` defaults to the cluster name given to `create_parser`."""
@@ -51,13 +50,13 @@ class PartitionArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
-    def test_partitions_default_to_provided_value(self) -> None:
-        """Verify `--partition` defaults to the partition names given to `create_parser`."""
+    def test_partitions_default_to_none(self) -> None:
+        """Verify `--partition` defaults to `None` when not provided."""
 
         args = self.parser.parse_args([])
-        self.assertEqual(DEFAULT_PARTITIONS, args.partitions)
+        self.assertIsNone(args.partitions, "An unset partition list should defer to querying all partitions")
 
     def test_single_partition_stored_as_list(self) -> None:
         """Verify a single `--partition` value is stored as a single element list."""
@@ -90,7 +89,7 @@ class DryRunFlag(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_dry_run_defaults_to_false(self) -> None:
         """Verify the `--dry-run` flag defaults to `False`."""
@@ -111,7 +110,7 @@ class ThresholdArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_threshold_defaults_to_module_constant(self) -> None:
         """Verify `--threshold` defaults to `DEFAULT_THRESHOLD`."""
@@ -132,7 +131,7 @@ class SmtpHostArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_smtp_host_defaults_to_none(self) -> None:
         """Verify `--smtp-host` defaults to `None` when not provided."""
@@ -153,7 +152,7 @@ class SmtpPortArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_smtp_port_defaults_to_module_constant(self) -> None:
         """Verify `--smtp-port` defaults to `DEFAULT_SMTP_PORT`."""
@@ -174,7 +173,7 @@ class EmailFromArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_email_from_defaults_to_module_constant(self) -> None:
         """Verify `--email-from` defaults to `DEFAULT_EMAIL_FROM`."""
@@ -195,7 +194,7 @@ class EmailDomainArgument(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
-        self.parser = create_parser(DEFAULT_CLUSTER, DEFAULT_PARTITIONS, exit_on_error=False)
+        self.parser = create_parser(DEFAULT_CLUSTER, exit_on_error=False)
 
     def test_email_dmn_defaults_to_module_constant(self) -> None:
         """Verify `--email-dmn` defaults to `DEFAULT_APPEND_DOMAIN`."""

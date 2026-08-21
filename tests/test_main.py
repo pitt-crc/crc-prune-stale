@@ -70,6 +70,19 @@ class RunFunction(TestCase):
 
         mock_fetch.assert_called_once_with(cluster="mpi", partitions=["opa"])
 
+    def test_unset_partitions_passed_through_as_none(
+        self,
+        mock_notify: MagicMock,
+        mock_cancel: MagicMock,
+        mock_fetch: MagicMock,
+    ) -> None:
+        """Verify an unset partition list is forwarded to `fetch_pending_jobs` unresolved."""
+
+        mock_fetch.return_value = []
+        self._call(cluster="mpi", partitions=None)
+
+        mock_fetch.assert_called_once_with(cluster="mpi", partitions=None)
+
     def test_cluster_passed_to_cancel_job(
         self,
         mock_notify: MagicMock,
@@ -171,7 +184,6 @@ class RunFunction(TestCase):
 
 
 @patch("crc_prune_stale.__main__.configure_logging")
-@patch("crc_prune_stale.__main__.fetch_partition_names")
 @patch("crc_prune_stale.__main__.fetch_cluster_name")
 @patch("crc_prune_stale.__main__.run")
 class MainFunction(TestCase):
@@ -181,32 +193,43 @@ class MainFunction(TestCase):
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
-        """Verify targeting values resolved from Slurm are used when no arguments are given."""
+        """Verify the cluster resolved from Slurm is used when no arguments are given."""
 
         mock_cluster.return_value = DEFAULT_CLUSTER
-        mock_partitions.return_value = DEFAULT_PARTITIONS
 
         with patch("sys.argv", ["prune-stale"]):
             main()
 
         kwargs = mock_run.call_args.kwargs
         self.assertEqual(DEFAULT_CLUSTER, kwargs["cluster"])
-        self.assertEqual(DEFAULT_PARTITIONS, kwargs["partitions"])
+
+    def test_partitions_are_not_resolved(
+        self,
+        mock_run: MagicMock,
+        mock_cluster: MagicMock,
+        mock_configure_logging: MagicMock,
+    ) -> None:
+        """Verify partitions are left unresolved so every partition on the cluster is queried."""
+
+        mock_cluster.return_value = DEFAULT_CLUSTER
+
+        with patch("sys.argv", ["prune-stale", "--cluster", "mpi"]):
+            main()
+
+        kwargs = mock_run.call_args.kwargs
+        self.assertIsNone(kwargs["partitions"], "Partitions must not be resolved from the local node")
 
     def test_command_line_arguments_override_resolved_defaults(
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
         """Verify command line targeting arguments take precedence over the resolved defaults."""
 
         mock_cluster.return_value = DEFAULT_CLUSTER
-        mock_partitions.return_value = DEFAULT_PARTITIONS
 
         with patch("sys.argv", ["prune-stale", "--cluster", "mpi", "--partition", "opa"]):
             main()
@@ -219,13 +242,11 @@ class MainFunction(TestCase):
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
         """Verify a `KeyboardInterrupt` during execution does not propagate to the caller."""
 
         mock_cluster.return_value = DEFAULT_CLUSTER
-        mock_partitions.return_value = DEFAULT_PARTITIONS
         mock_run.side_effect = KeyboardInterrupt()
 
         with patch("sys.argv", ["prune-stale"]):
@@ -235,13 +256,11 @@ class MainFunction(TestCase):
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
         """Verify an error raised during execution is logged instead of propagating."""
 
         mock_cluster.return_value = DEFAULT_CLUSTER
-        mock_partitions.return_value = DEFAULT_PARTITIONS
         mock_run.side_effect = RuntimeError("boom")
 
         with patch("sys.argv", ["prune-stale"]):
@@ -252,7 +271,6 @@ class MainFunction(TestCase):
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
         """Verify a failure resolving the default targeting values is logged instead of propagating."""
@@ -269,13 +287,11 @@ class MainFunction(TestCase):
         self,
         mock_run: MagicMock,
         mock_cluster: MagicMock,
-        mock_partitions: MagicMock,
         mock_configure_logging: MagicMock,
     ) -> None:
         """Verify `--help` exits the runtime rather than being caught as an error."""
 
         mock_cluster.return_value = DEFAULT_CLUSTER
-        mock_partitions.return_value = DEFAULT_PARTITIONS
 
         with patch("sys.argv", ["prune-stale", "--help"]), patch("sys.stdout", new=StringIO()):
             with self.assertRaises(SystemExit) as ctx:

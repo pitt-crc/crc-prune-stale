@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_partition_names, fetch_pending_jobs, JobRecord
+from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs, JobRecord
 
 PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
 CLUSTER_BANNER = "CLUSTER: htc\n"
@@ -99,103 +99,6 @@ class FetchClusterName(TestCase):
 
         with self.assertRaises(subprocess.CalledProcessError):
             fetch_cluster_name()
-
-
-class FetchPartitionNames(TestCase):
-    """Verify the subprocess call and output parsing behaviour of `fetch_partition_names`."""
-
-    def setUp(self) -> None:
-        """Create test fixtures using mock data."""
-
-        self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
-        self.mock_run = self.subprocess_patch.start()
-
-    def tearDown(self) -> None:
-        """Close any open server connections."""
-
-        self.subprocess_patch.stop()
-
-    def test_sinfo_called_with_correct_arguments(self) -> None:
-        """Verify `sinfo` is invoked with the expected command-line flags."""
-
-        self.mock_run.return_value = _make_result("")
-        fetch_partition_names()
-
-        args = self.mock_run.call_args[0][0]
-        self.assertEqual("sinfo", args[0])
-        self.assertIn("--noheader", args)
-        self.assertIn("--format=%R", args)
-
-    def test_cluster_flag_included_when_specified(self) -> None:
-        """Verify the `--clusters` flag is included when a cluster is given."""
-
-        self.mock_run.return_value = _make_result("")
-        fetch_partition_names("mpi")
-
-        args = self.mock_run.call_args[0][0]
-        self.assertIn("--clusters=mpi", args)
-
-    def test_cluster_flag_omitted_by_default(self) -> None:
-        """Verify no `--clusters` flag is passed when no cluster is given."""
-
-        self.mock_run.return_value = _make_result("")
-        fetch_partition_names()
-
-        args = self.mock_run.call_args[0][0]
-        self.assertFalse(
-            any(arg.startswith("--clusters") for arg in args),
-            "Cluster scope should defer to the local node configuration",
-        )
-
-    def test_returns_partition_names(self) -> None:
-        """Verify each reported partition name is returned."""
-
-        self.mock_run.return_value = _make_result("smp\ngpu\nopa\n")
-        self.assertEqual(["smp", "gpu", "opa"], fetch_partition_names())
-
-    def test_duplicate_names_are_removed(self) -> None:
-        """Verify partitions reported once per node state grouping appear only once."""
-
-        self.mock_run.return_value = _make_result("smp\nsmp\ngpu\nsmp\n")
-        self.assertEqual(["smp", "gpu"], fetch_partition_names())
-
-    def test_first_seen_order_is_preserved(self) -> None:
-        """Verify deduplicated names retain the order reported by Slurm."""
-
-        self.mock_run.return_value = _make_result("opa\ngpu\nopa\nsmp\n")
-        self.assertEqual(["opa", "gpu", "smp"], fetch_partition_names())
-
-    def test_skips_cluster_banner(self) -> None:
-        """Verify the cluster banner line is not returned as a partition name."""
-
-        self.mock_run.return_value = _make_result(f"{CLUSTER_BANNER}smp\ngpu\n")
-        self.assertEqual(["smp", "gpu"], fetch_partition_names("htc"))
-
-    def test_skips_blank_lines(self) -> None:
-        """Verify blank lines in sinfo output are ignored."""
-
-        self.mock_run.return_value = _make_result("\nsmp\n\ngpu\n")
-        self.assertEqual(["smp", "gpu"], fetch_partition_names())
-
-    def test_strips_whitespace_from_names(self) -> None:
-        """Verify leading and trailing whitespace is stripped from each partition name."""
-
-        self.mock_run.return_value = _make_result("  smp  \n  gpu\n")
-        self.assertEqual(["smp", "gpu"], fetch_partition_names())
-
-    def test_returns_empty_list_when_no_output(self) -> None:
-        """Verify an empty sinfo output returns an empty list."""
-
-        self.mock_run.return_value = _make_result("")
-        self.assertEqual([], fetch_partition_names())
-
-    def test_raises_on_subprocess_error(self) -> None:
-        """Verify a `CalledProcessError` from sinfo propagates to the caller."""
-
-        self.mock_run.side_effect = subprocess.CalledProcessError(1, "sinfo", stderr="error")
-
-        with self.assertRaises(subprocess.CalledProcessError):
-            fetch_partition_names()
 
 
 class FetchPendingJobs(TestCase):
