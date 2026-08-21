@@ -27,23 +27,6 @@ class JobRecord:
     state: str
 
 
-def _is_partition_name(line: str) -> bool:
-    """Return whether a line of `sinfo` output is a partition name.
-
-    Slurm prefixes command output with a `CLUSTER: <name>` banner whenever the command
-    is scoped with `--clusters`, including when the named cluster is the local default.
-
-    Args:
-        line: A single line of `sinfo` output.
-
-    Returns:
-        Whether the line is a partition name rather than a banner or blank padding.
-    """
-
-    stripped = line.strip()
-    return bool(stripped) and not stripped.startswith(CLUSTER_BANNER_PREFIX)
-
-
 def fetch_cluster_name() -> str:
     """Query `scontrol` and return the cluster name defined by the local node configuration.
 
