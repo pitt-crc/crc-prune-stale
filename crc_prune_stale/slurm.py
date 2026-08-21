@@ -120,7 +120,7 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
     jobs: list[JobRecord] = []
     for line in slurm_cmd.stdout.splitlines():
         line = line.strip()
-        if not line:
+        if not line or line.startswith(CLUSTER_BANNER_PREFIX):
             continue
 
         parts = line.split("|")

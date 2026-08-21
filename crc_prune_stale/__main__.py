@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from .cli import create_parser
 from .log import configure_logging
 from .notify import notify_users
-from .slurm import cancel_job, fetch_pending_jobs
+from .slurm import cancel_job, fetch_cluster_name, fetch_partition_names, fetch_pending_jobs
 
 __all__ = ("main", "run")
 
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 def run(
     *,
+    cluster: str,
+    partitions: list[str],
     dry_run: bool,
     threshold: int,
     smtp_host: str | None,
@@ -34,6 +36,8 @@ def run(
     `smtp_host=None` or `dry-run=True`.
 
     Args:
+        cluster: Name of the cluster to query.
+        partitions: Names of the partitions to query.
         dry_run: If True, log intended cancellations without calling scancel.
         threshold: Number of days a job must have been pending before cancellation.
         smtp_host: Hostname of the SMTP server, or `None` to disable notifications.
@@ -43,19 +47,20 @@ def run(
     """
 
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=threshold)
+    logger.info("Targeting cluster %s, partition(s) %s.", cluster, ", ".join(partitions))
     logger.info(
-        "Terminating pending jobs submitted before %s (dry_run=%s).",
+        "Cancelling jobs pending since before %s (dry_run=%s).",
         cutoff.strftime("%Y-%m-%d %H:%M:%S UTC"),
         dry_run,
     )
 
-    all_pending = fetch_pending_jobs()
+    all_pending = fetch_pending_jobs(cluster=cluster, partitions=partitions)
     logger.info("Found %d pending jobs.", len(all_pending))
 
     stale_jobs = [job for job in all_pending if job.submit_time < cutoff]
     logger.info("Found %d stale jobs older than cutoff.", len(stale_jobs))
 
-    cancelled_jobs = [job for job in stale_jobs if cancel_job(job, dry_run=dry_run)]
+    cancelled_jobs = [job for job in stale_jobs if cancel_job(job, cluster=cluster, dry_run=dry_run)]
     logger.info("Marked %d jobs for cancellation without errors.", len(cancelled_jobs))
 
     if smtp_host and not dry_run:
@@ -88,15 +93,21 @@ def run(
 def main() -> None:
     """Invoke the cancellation pipeline and handle top-level exceptions.
 
-    The primary application entry point used to wrap the `run` method with
-    user-friendly log handling.
+    The primary application entry point. Initializes application logging, parses
+    commandline arguments, and executes the `run` command with appropriate arguments.
     """
 
     configure_logging()
-    args = create_parser().parse_args()
 
     try:
+        default_cluster = fetch_cluster_name()
+        default_partitions = fetch_partition_names()
+        parser = create_parser(default_cluster, default_partitions)
+
+        args = parser.parse_args()
         run(
+            cluster=args.cluster,
+            partitions=args.partitions,
             dry_run=args.dry_run,
             threshold=args.threshold,
             smtp_host=args.smtp_host,
