@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from .shell import run_subprocess
 
-__all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_partition_names", "fetch_pending_jobs")
+__all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_pending_jobs")
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 CLUSTER_CONFIG_KEY = "ClusterName"
