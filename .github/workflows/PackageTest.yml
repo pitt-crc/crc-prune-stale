@@ -36,10 +36,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python_version: ${{ matrix.python_version }}
 
       - name: Install Poetry
-        run: pip${{ matrix.python-version }} install poetry
+        run: pip${{ matrix.python_version }} install poetry
 
       - name: Install dependencies
         run: poetry install --with tests
