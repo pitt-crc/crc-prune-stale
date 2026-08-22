@@ -6,6 +6,7 @@ delegated to a sibling module.
 """
 
 import logging
+import sys
 from datetime import datetime, timedelta, timezone
 
 from .cli import create_parser
@@ -125,3 +126,4 @@ def main() -> None:
 
     except Exception as exc:
         logger.critical(exc)
+        sys.exit(1)
