@@ -35,7 +35,7 @@ class ConfigureLogging(TestCase):
     def test_root_logger_level_is_debug(self) -> None:
         """Verify the root logger level is set to `DEBUG`."""
 
-        self.assertEqual(logging.getLogger().level, logging.DEBUG)
+        self.assertEqual(logging.DEBUG, logging.getLogger().level)
 
     def test_has_console_handler(self) -> None:
         """Verify the root logger has a `StreamHandler` attached."""

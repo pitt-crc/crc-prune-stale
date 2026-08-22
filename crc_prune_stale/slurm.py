@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 
 from .shell import run_subprocess
 
-__all__ = ("JobRecord", "cancel_job", "fetch_pending_jobs")
+__all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_pending_jobs")
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+CLUSTER_CONFIG_KEY = "ClusterName"
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +26,54 @@ class JobRecord:
     state: str
 
 
-def fetch_pending_jobs() -> list[JobRecord]:
+def fetch_cluster_name() -> str:
+    """Query `scontrol` and return the cluster name defined by the local node configuration.
+
+    Returns:
+        cluster: The name of the cluster the local node belongs to.
+
+    Raises:
+        RuntimeError: If the Slurm configuration does not define a cluster name.
+    """
+
+    slurm_cmd = run_subprocess(["scontrol", "show", "config"])
+
+    for line in slurm_cmd.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == CLUSTER_CONFIG_KEY and value.strip():
+            return value.strip()
+
+    raise RuntimeError("Could not determine the cluster name from the local Slurm configuration")
+
+
+def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None = None) -> list[JobRecord]:
     """Query `squeue` and return all currently pending jobs.
+
+    Arguments left as `None` are omitted from the `squeue` call, deferring to the
+    default Slurm configuration of the local node.
+
+    Args:
+        cluster: The name of the cluster to query.
+        partitions: The names of the partitions to query.
 
     Returns:
         jobs: A list with one `JobRecord` instances per pending job.
     """
 
-    slurm_cmd = run_subprocess([
+    squeue_args = [
         "squeue",
         "--state=PENDING",
         "--noheader",
         "--format=%i|%u|%V|%j|%P|%T",
-    ])
+    ]
+
+    if cluster:
+        squeue_args.append(f"--clusters={cluster}")
+
+    if partitions:
+        squeue_args.append(f"--partition={','.join(partitions)}")
+
+    slurm_cmd = run_subprocess(squeue_args)
 
     jobs: list[JobRecord] = []
     for line in slurm_cmd.stdout.splitlines():
@@ -76,11 +112,12 @@ def fetch_pending_jobs() -> list[JobRecord]:
     return jobs
 
 
-def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
+def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = False) -> bool:
     """Cancel a single Slurm job by ID using scancel.
 
     Args:
         job: The JobRecord of the job to cancel.
+        cluster: The name of the cluster the job was submitted to.
         dry_run: If `True`, log the intended cancellation without calling scancel.
 
     Returns:
@@ -99,9 +136,13 @@ def cancel_job(job: JobRecord, *, dry_run: bool = False) -> bool:
 
         return True
 
+    scancel_args = ["scancel", job.job_id]
+    if cluster:
+        scancel_args.append(f"--clusters={cluster}")
+
     # noinspection PyBroadException
     try:
-        run_subprocess(["scancel", job.job_id])
+        run_subprocess(scancel_args)
 
     except Exception:
         return False

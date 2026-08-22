@@ -14,23 +14,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        slurm_version:
+          - "25.05.7"
+          - "25.11.7"
         python_version:
-          - 3.11
-          - 3.12
-          - 3.13
-          - 3.14
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    container:
+      image: ghcr.io/pitt-crc/test-env:${{ matrix.slurm_version }}
 
     steps:
+      - name: Setup environment
+        run: /usr/local/bin/entrypoint.sh
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python_version: ${{ matrix.python_version }}
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        run: pip${{ matrix.python_version }} install poetry
 
       - name: Install dependencies
         run: poetry install --with tests
