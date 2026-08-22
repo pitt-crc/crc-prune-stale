@@ -14,13 +14,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        slurm_version:
+          - "25.05.7"
+          - "25.11.7"
         python_version:
-          - 3.11
-          - 3.12
-          - 3.13
-          - 3.14
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    container:
+      image: ghcr.io/pitt-crc/test-env:${{ matrix.slurm_version }}
 
     steps:
+      - name: Setup environment
+        run: /usr/local/bin/entrypoint.sh
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
