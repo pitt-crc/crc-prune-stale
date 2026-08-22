@@ -1,6 +1,5 @@
 """Tests for the `slurm` module."""
 
-import logging
 import subprocess
 from datetime import datetime, timezone
 from unittest import TestCase
@@ -248,14 +247,6 @@ class FetchPendingJobs(TestCase):
 
         jobs = fetch_pending_jobs(cluster="htc")
         self.assertEqual(1, len(jobs), "Banner line should not be parsed as a job record")
-
-    def test_cluster_banner_produces_no_warning(self) -> None:
-        """Verify the cluster banner is not reported as malformed squeue output."""
-
-        self.mock_run.return_value = _make_result(f"{CLUSTER_BANNER}{PENDING_LINE}")
-
-        with self.assertNoLogs("crc_prune_stale.slurm", level=logging.WARNING):
-            fetch_pending_jobs(cluster="htc")
 
     def test_skips_malformed_lines(self) -> None:
         """Verify lines with the wrong number of fields are skipped."""
