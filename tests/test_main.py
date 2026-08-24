@@ -265,7 +265,8 @@ class MainFunction(TestCase):
 
         with patch("sys.argv", ["prune-stale"]):
             with self.assertLogs("crc_prune_stale.__main__", level=logging.CRITICAL):
-                main()
+                with self.assertRaises(SystemExit):
+                    main()
 
     def test_resolution_error_is_logged_as_critical(
         self,
@@ -279,7 +280,8 @@ class MainFunction(TestCase):
 
         with patch("sys.argv", ["prune-stale"]):
             with self.assertLogs("crc_prune_stale.__main__", level=logging.CRITICAL):
-                main()
+                with self.assertRaises(SystemExit):
+                    main()
 
         mock_run.assert_not_called()
 
