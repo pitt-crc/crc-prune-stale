@@ -1,6 +1,8 @@
 """Slurm job data types and subprocess wrappers for `squeue` and `scancel`."""
 
 import logging
+import re
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -10,6 +12,11 @@ __all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_pending_jobs"
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 CLUSTER_CONFIG_KEY = "ClusterName"
+
+# Slurm client commands log failures to stderr as `<command>: error: <message>`
+SLURM_ERROR_PATTERN = re.compile(
+    r"^\s*(?:\S+:\s*)?(?:error|fatal):\s*(?P<message>.+?)\s*$", re.MULTILINE
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +128,7 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
         dry_run: If `True`, log the intended cancellation without calling scancel.
 
     Returns:
-        success: `True` if `scancel` exited without error, or if `dry_run` is `True`.
+        success: `True` if the job was canceled, or if `dry_run` is `True`.
     """
 
     if dry_run:
@@ -140,11 +147,23 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
     if cluster:
         scancel_args.append(f"--clusters={cluster}")
 
-    # noinspection PyBroadException
     try:
-        run_subprocess(scancel_args)
+        slurm_cmd = run_subprocess(scancel_args)
 
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+    # A zero exit status does not imply the job was canceled, so the stderr
+    # stream is checked for the per-job errors returned by the controller
+    error = SLURM_ERROR_PATTERN.search(slurm_cmd.stderr)
+    if error:
+        logger.error(
+            "Could not cancel job %s submitted by %s: %s",
+            job.job_id,
+            job.username,
+            error.group("message"),
+        )
+
         return False
 
     logger.info(
