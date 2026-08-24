@@ -50,7 +50,7 @@ def _get_html_body(message: EmailMessage) -> str:
 
 
 class NotifyUsers(TestCase):
-    """Verify the email construction and SMTP behaviour of `notify_users`."""
+    """Verify the email construction and SMTP behavior of `notify_users`."""
 
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
@@ -108,7 +108,7 @@ class NotifyUsers(TestCase):
         self.assertEqual("Your pending Slurm job(s) have been cancelled", message["Subject"])
 
     def test_message_is_multipart_alternative(self) -> None:
-        """Verify the sent message uses multipart/alternative encoding."""
+        """Verify the message uses multipart/alternative encoding."""
 
         self._call()
         message = self._sent_messages()[0]

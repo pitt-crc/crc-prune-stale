@@ -1,5 +1,6 @@
 """Tests for the `slurm` module."""
 
+import logging
 import subprocess
 from datetime import datetime, timezone
 from unittest import TestCase
@@ -7,6 +8,10 @@ from unittest.mock import MagicMock, patch
 
 from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs, JobRecord
 
+# Logger name targeted when asserting against emitted log records
+SLURM_LOGGER = "crc_prune_stale.slurm"
+
+# Mock stdout streams returned by `squeue` and `scontrol`
 PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
 CLUSTER_BANNER = "CLUSTER: htc\n"
 SCONTROL_OUTPUT = (
@@ -16,12 +21,18 @@ SCONTROL_OUTPUT = (
     "ControlMachine          = mgmt01\n"
 )
 
+# Mock stderr streams returned by `scancel` alongside a zero exit status
+SCANCEL_DENIED_STDERR = "scancel: error: Kill job error on job id 12345: Access/permission denied\n"
+SCANCEL_FATAL_STDERR = "scancel: fatal: Unable to contact slurm controller (connect failure)\n"
+SCANCEL_VERBOSE_STDERR = "scancel: verbose: Terminating job 12345\n"
 
-def _make_result(stdout: str) -> MagicMock:
-    """Return a mock `subprocess.CompletedProcess` with the given stdout.
+
+def _make_result(stdout: str = "", stderr: str = "") -> MagicMock:
+    """Return a mock `subprocess.CompletedProcess` with the given output streams.
 
     Args:
         stdout: The standard output captured from the mock process.
+        stderr: The standard error captured from the mock process.
 
     Returns:
         result: A mock completed process.
@@ -29,6 +40,7 @@ def _make_result(stdout: str) -> MagicMock:
 
     result = MagicMock()
     result.stdout = stdout
+    result.stderr = stderr
     return result
 
 
@@ -297,6 +309,7 @@ class CancelJob(TestCase):
 
         self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
         self.mock_run = self.subprocess_patch.start()
+        self.mock_run.return_value = _make_result()
 
     def tearDown(self) -> None:
         """Close any open server connections."""
@@ -333,6 +346,45 @@ class CancelJob(TestCase):
 
     def test_returns_true_on_success(self) -> None:
         """Verify `True` is returned when scancel exits without error."""
+
+        self.assertTrue(cancel_job(self.job))
+
+    def test_returns_false_on_error_in_stderr(self) -> None:
+        """Verify `False` is returned when scancel logs an error but exits successfully."""
+
+        self.mock_run.return_value = _make_result(stderr=SCANCEL_DENIED_STDERR)
+        self.assertFalse(cancel_job(self.job, cluster="mpi"))
+
+    def test_returns_false_on_fatal_in_stderr(self) -> None:
+        """Verify `False` is returned when scancel logs a fatal error but exits successfully."""
+
+        self.mock_run.return_value = _make_result(stderr=SCANCEL_FATAL_STDERR)
+        self.assertFalse(cancel_job(self.job, cluster="mpi"))
+
+    def test_stderr_error_is_logged(self) -> None:
+        """Verify the error returned by the controller is logged against the job ID."""
+
+        self.mock_run.return_value = _make_result(stderr=SCANCEL_DENIED_STDERR)
+
+        with self.assertLogs(SLURM_LOGGER, level=logging.ERROR) as captured:
+            cancel_job(self.job, cluster="mpi")
+
+        combined = "\n".join(captured.output)
+        self.assertIn("12345", combined, "Log record should identify the job that was not cancelled")
+        self.assertIn(
+            "Access/permission denied", combined, "Log record should include the message reported by Slurm"
+        )
+
+    def test_verbose_stderr_produces_no_failure(self) -> None:
+        """Verify non-error messages in stderr are not treated as an error."""
+
+        self.mock_run.return_value = _make_result(stderr=SCANCEL_VERBOSE_STDERR)
+        self.assertTrue(cancel_job(self.job))
+
+    def test_error_within_message_body_produces_no_failure(self) -> None:
+        """Verify the word `error` inside a non-error message is not treated as an error."""
+
+        self.mock_run.return_value = _make_result(stderr="scancel: Terminating job 12345 after error recovery")
 
         self.assertTrue(cancel_job(self.job))
 
