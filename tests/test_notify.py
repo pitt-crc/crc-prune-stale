@@ -9,6 +9,9 @@ from unittest.mock import MagicMock, patch
 from crc_prune_stale.notify import notify_users
 from crc_prune_stale.slurm import JobRecord
 
+# A job name containing markup, used to verify user controlled values are escaped
+MARKUP_JOB_NAME = "<script>alert(1)</script>"
+
 
 def _make_job(
     job_id: str = "12345",
@@ -147,6 +150,56 @@ class NotifyUsers(TestCase):
         self._call(threshold=14)
         body = _get_html_body(self._sent_messages()[0])
         self.assertIn("14 days", body)
+
+    def test_html_body_escapes_job_name(self) -> None:
+        """Verify markup in a job name is escaped in the HTML part."""
+
+        self._call(jobs=[_make_job(job_name=MARKUP_JOB_NAME)])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertNotIn(MARKUP_JOB_NAME, body, "A job name must not be interpolated as markup")
+        self.assertIn("&lt;script&gt;", body)
+
+    def test_html_body_escapes_partition(self) -> None:
+        """Verify markup in a partition name is escaped in the HTML part."""
+
+        self._call(jobs=[_make_job(partition=MARKUP_JOB_NAME)])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertNotIn(MARKUP_JOB_NAME, body)
+
+    def test_html_body_escapes_job_id(self) -> None:
+        """Verify markup in a job ID is escaped in the HTML part."""
+
+        self._call(jobs=[_make_job(job_id=MARKUP_JOB_NAME)])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertNotIn(MARKUP_JOB_NAME, body)
+
+    def test_html_body_escapes_username(self) -> None:
+        """Verify markup in a username is escaped in the HTML part."""
+
+        self._call(jobs=[_make_job(username="alice<b>")])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertNotIn("alice<b>", body, "A username must not be interpolated as markup")
+        self.assertIn("alice&lt;b&gt;", body)
+
+    def test_html_body_escapes_ampersand_in_job_name(self) -> None:
+        """Verify an ampersand in a job name is escaped rather than read as a character reference."""
+
+        self._call(jobs=[_make_job(job_name="fit_a&b")])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertIn("fit_a&amp;b", body)
+
+    def test_plain_body_renders_job_name_literally(self) -> None:
+        """Verify an escaped job name is rendered as literal text in the plain-text part."""
+
+        self._call(jobs=[_make_job(job_name=MARKUP_JOB_NAME)])
+        body = _get_plain_body(self._sent_messages()[0])
+
+        self.assertIn(MARKUP_JOB_NAME, body, "The plain-text part should show the name the user chose")
 
     def test_smtp_connected_with_host_and_port(self) -> None:
         """Verify the SMTP client is opened with the provided host and port."""
