@@ -1,5 +1,6 @@
 """Email and SMTP logic for notifying users."""
 
+import html
 import logging
 import smtplib
 from collections import defaultdict
@@ -60,10 +61,13 @@ def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> s
     data_rows = ""
     for i, job in enumerate(jobs):
         row_bg = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+
+        # Job names and partitions are user controlled and must not be
+        # interpolated into the message body as markup
         cells = (
-            job.job_id,
-            job.job_name,
-            job.partition,
+            html.escape(job.job_id),
+            html.escape(job.job_name),
+            html.escape(job.partition),
             job.submit_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
 
@@ -82,7 +86,7 @@ def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> s
         f"<body style=\"font-family:Arial,sans-serif;font-size:14px;color:#333;\n"
         f"             max-width:760px;margin:0 auto;padding:24px;\">\n"
         f"\n"
-        f"  <p>Dear {username},</p>\n"
+        f"  <p>Dear {html.escape(username)},</p>\n"
         f"\n"
         f"  <p>\n"
         f"    This is an automated notice that one or more of your CRCD Slurm jobs have been\n"
