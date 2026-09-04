@@ -8,7 +8,13 @@ from datetime import datetime, timezone
 
 from .shell import run_subprocess
 
-__all__ = ("JobRecord", "cancel_job", "fetch_cluster_name", "fetch_pending_jobs")
+__all__ = (
+    "JobRecord",
+    "cancel_job",
+    "fetch_cluster_name",
+    "fetch_pending_jobs",
+    "normalize_job_id",
+)
 
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 CLUSTER_CONFIG_KEY = "ClusterName"
@@ -17,6 +23,11 @@ CLUSTER_CONFIG_KEY = "ClusterName"
 SLURM_ERROR_PATTERN = re.compile(
     r"^\s*(?:\S+:\s*)?(?:error|fatal):\s*(?P<message>.+?)\s*$", re.MULTILINE
 )
+
+# `squeue` renders the concurrency limit of a throttled array job as
+# `<id>_[<range>%<limit>]`, but the `%<limit>` suffix is rejected as
+# invalid input by the Slurm client commands
+ARRAY_THROTTLE_PATTERN = re.compile(r"%\d+(?=])")
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +42,19 @@ class JobRecord:
     job_name: str
     partition: str
     state: str
+
+
+def normalize_job_id(job_id: str) -> str:
+    """Rewrite a job ID into a format accepted by the Slurm client commands.
+
+    Args:
+        job_id: A job ID as reported by `squeue`.
+
+    Returns:
+        job_id: The job ID with any array task concurrency limit removed.
+    """
+
+    return ARRAY_THROTTLE_PATTERN.sub("", job_id)
 
 
 def fetch_cluster_name() -> str:
@@ -143,7 +167,7 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
 
         return True
 
-    scancel_args = ["scancel", job.job_id]
+    scancel_args = ["scancel", normalize_job_id(job.job_id)]
     if cluster:
         scancel_args.append(f"--clusters={cluster}")
 

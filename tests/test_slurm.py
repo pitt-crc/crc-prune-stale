@@ -2,11 +2,12 @@
 
 import logging
 import subprocess
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs, JobRecord
+from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs, JobRecord, normalize_job_id
 
 # Logger name targeted when asserting against emitted log records
 SLURM_LOGGER = "crc_prune_stale.slurm"
@@ -26,6 +27,11 @@ SCANCEL_DENIED_STDERR = "scancel: error: Kill job error on job id 12345: Access/
 SCANCEL_FATAL_STDERR = "scancel: fatal: Unable to contact slurm controller (connect failure)\n"
 SCANCEL_VERBOSE_STDERR = "scancel: verbose: Terminating job 12345\n"
 
+# Array job IDs as reported by `squeue`, with and without a concurrency limit
+THROTTLED_ARRAY_ID = "3237889_[0-15%16]"
+THROTTLED_ARRAY_ID_NORMALIZED = "3237889_[0-15]"
+UNTHROTTLED_ARRAY_ID = "20916495_[100-140]"
+
 
 def _make_result(stdout: str = "", stderr: str = "") -> MagicMock:
     """Return a mock `subprocess.CompletedProcess` with the given output streams.
@@ -42,6 +48,45 @@ def _make_result(stdout: str = "", stderr: str = "") -> MagicMock:
     result.stdout = stdout
     result.stderr = stderr
     return result
+
+
+class NormalizeJobId(TestCase):
+    """Verify the job ID rewriting behaviour of `normalize_job_id`."""
+
+    def test_array_task_throttle_is_removed(self) -> None:
+        """Verify the concurrency limit is stripped from a throttled array job ID."""
+
+        self.assertEqual(THROTTLED_ARRAY_ID_NORMALIZED, normalize_job_id(THROTTLED_ARRAY_ID))
+
+    def test_single_digit_throttle_is_removed(self) -> None:
+        """Verify a single digit concurrency limit is stripped."""
+
+        self.assertEqual("3237889_[0-15]", normalize_job_id("3237889_[0-15%1]"))
+
+    def test_multi_range_throttle_is_removed(self) -> None:
+        """Verify the concurrency limit is stripped from an array job with several task ranges."""
+
+        self.assertEqual("3237889_[1-3,7,9-11]", normalize_job_id("3237889_[1-3,7,9-11%4]"))
+
+    def test_unthrottled_array_range_is_unchanged(self) -> None:
+        """Verify an array job ID without a concurrency limit is returned unchanged."""
+
+        self.assertEqual(UNTHROTTLED_ARRAY_ID, normalize_job_id(UNTHROTTLED_ARRAY_ID))
+
+    def test_single_array_task_is_unchanged(self) -> None:
+        """Verify the ID of an individual array task is returned unchanged."""
+
+        self.assertEqual("22747001_6", normalize_job_id("22747001_6"))
+
+    def test_plain_job_id_is_unchanged(self) -> None:
+        """Verify a non-array job ID is returned unchanged."""
+
+        self.assertEqual("20140070", normalize_job_id("20140070"))
+
+    def test_percent_outside_task_range_is_preserved(self) -> None:
+        """Verify a percent sign not terminating a task range is not stripped."""
+
+        self.assertEqual("12345%16", normalize_job_id("12345%16"), "Only array task throttles should be removed")
 
 
 class FetchClusterName(TestCase):
@@ -324,6 +369,53 @@ class CancelJob(TestCase):
         args = self.mock_run.call_args[0][0]
         self.assertEqual("scancel", args[0])
         self.assertIn("12345", args)
+
+    def test_scancel_called_with_normalized_array_job_id(self) -> None:
+        """Verify the array task throttle is stripped from the ID passed to `scancel`."""
+
+        cancel_job(replace(self.job, job_id=THROTTLED_ARRAY_ID))
+
+        args = self.mock_run.call_args[0][0]
+        self.assertIn(
+            THROTTLED_ARRAY_ID_NORMALIZED, args, "Slurm rejects the concurrency limit reported by squeue"
+        )
+
+    def test_scancel_called_with_unmodified_unthrottled_array_id(self) -> None:
+        """Verify an array job ID without a concurrency limit is passed to `scancel` unchanged."""
+
+        cancel_job(replace(self.job, job_id=UNTHROTTLED_ARRAY_ID))
+
+        args = self.mock_run.call_args[0][0]
+        self.assertIn(UNTHROTTLED_ARRAY_ID, args)
+
+    def test_throttled_array_job_returns_true(self) -> None:
+        """Verify a throttled array job is reported as cancelled."""
+
+        self.assertTrue(cancel_job(replace(self.job, job_id=THROTTLED_ARRAY_ID)))
+
+    def test_job_record_id_is_not_modified(self) -> None:
+        """Verify normalizing the ID for `scancel` leaves the job record untouched."""
+
+        job = replace(self.job, job_id=THROTTLED_ARRAY_ID)
+        cancel_job(job)
+
+        self.assertEqual(THROTTLED_ARRAY_ID, job.job_id, "Notifications should report the ID squeue reported")
+
+    def test_success_log_reports_unnormalized_job_id(self) -> None:
+        """Verify the cancellation log record identifies the job by its original ID."""
+
+        with self.assertLogs(SLURM_LOGGER, level=logging.INFO) as captured:
+            cancel_job(replace(self.job, job_id=THROTTLED_ARRAY_ID))
+
+        self.assertIn(THROTTLED_ARRAY_ID, "\n".join(captured.output))
+
+    def test_dry_run_log_reports_unnormalized_job_id(self) -> None:
+        """Verify the dry run log record identifies the job by its original ID."""
+
+        with self.assertLogs(SLURM_LOGGER, level=logging.INFO) as captured:
+            cancel_job(replace(self.job, job_id=THROTTLED_ARRAY_ID), dry_run=True)
+
+        self.assertIn(THROTTLED_ARRAY_ID, "\n".join(captured.output))
 
     def test_cluster_flag_included_when_specified(self) -> None:
         """Verify the `--clusters` flag is included when a cluster is given."""
