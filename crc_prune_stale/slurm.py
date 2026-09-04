@@ -119,9 +119,11 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
 
         job_id, username, submit_time_str, job_name, partition, state = parts
         try:
+            # Slurm renders submit times in the local time of the node, so the
+            # parsed value is localized before being normalized to UTC
             submit_time = datetime.strptime(
                 submit_time_str.strip(), SLURM_TIME_FORMAT
-            ).replace(tzinfo=timezone.utc)
+            ).astimezone(timezone.utc)
 
         except ValueError:
             logger.warning(
