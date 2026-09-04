@@ -31,6 +31,7 @@ def _make_job(days_ago: int) -> JobRecord:
         job_name="my_job",
         partition="gpu",
         state="PENDING",
+        reason="Resources",
     )
 
 

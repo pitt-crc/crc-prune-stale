@@ -19,6 +19,7 @@ def _make_job(
     job_name: str = "my_job",
     partition: str = "gpu",
     state: str = "PENDING",
+    reason: str = "Resources",
 ) -> JobRecord:
     """Return a `JobRecord` populated with mock data."""
 
@@ -29,6 +30,7 @@ def _make_job(
         job_name=job_name,
         partition=partition,
         state=state,
+        reason=reason,
     )
 
 
