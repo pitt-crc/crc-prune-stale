@@ -1,95 +1,12 @@
-"""Unit tests for the `notify` module."""
+"""Unit tests for the `notify_users` function."""
 
 import smtplib
-from datetime import datetime, timezone
-from email.message import EmailMessage
-from unittest import TestCase
-from unittest.mock import MagicMock, patch
 
-from crc_prune_stale.notify import notify_users
-from crc_prune_stale.slurm import JobRecord
-
-# A job name containing markup, used to verify user controlled values are escaped
-MARKUP_JOB_NAME = "<script>alert(1)</script>"
+from .common import _get_html_body, _get_plain_body, _make_job, MARKUP_JOB_NAME, NotifyUsersTestCase
 
 
-def _make_job(
-    job_id: str = "12345",
-    username: str = "testuser",
-    job_name: str = "my_job",
-    partition: str = "gpu",
-    state: str = "PENDING",
-    reason: str = "Resources",
-) -> JobRecord:
-    """Return a `JobRecord` populated with mock data."""
-
-    return JobRecord(
-        job_id=job_id,
-        username=username,
-        submit_time=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-        job_name=job_name,
-        partition=partition,
-        state=state,
-        reason=reason,
-    )
-
-
-def _get_plain_body(message: EmailMessage) -> str:
-    """Return the plain-text body from a multipart email message."""
-
-    for part in message.walk():
-        if part.get_content_type() == "text/plain":
-            return part.get_content()
-
-    return ""
-
-
-def _get_html_body(message: EmailMessage) -> str:
-    """Return the HTML body from a multipart email message."""
-
-    for part in message.walk():
-        if part.get_content_type() == "text/html":
-            return part.get_content()
-
-    return ""
-
-
-class NotifyUsers(TestCase):
-    """Verify the email construction and SMTP behavior of `notify_users`."""
-
-    def setUp(self) -> None:
-        """Create test fixtures using mock data."""
-
-        self.job = _make_job()
-
-        self.smtp_patch = patch("smtplib.SMTP")
-        self.mock_smtp = self.smtp_patch.start()
-        self.mock_smtp_instance = MagicMock()
-        self.mock_smtp.return_value.__enter__.return_value = self.mock_smtp_instance
-
-    def tearDown(self) -> None:
-        """Close any open server connections."""
-
-        self.smtp_patch.stop()
-
-    def _call(self, **kwargs) -> None:
-        """Call `notify_users` with default test arguments, allowing overrides."""
-
-        defaults = dict(
-            jobs=[self.job],
-            smtp_host="smtp.example.com",
-            smtp_port=25,
-            email_from="noreply@example.com",
-            email_domain="example.com",
-            threshold=10,
-        )
-
-        notify_users(**{**defaults, **kwargs})
-
-    def _sent_messages(self) -> list:
-        """Return all `EmailMessage` objects passed to `send_message`."""
-
-        return [call.args[0] for call in self.mock_smtp_instance.send_message.call_args_list]
+class MessageHeaders(NotifyUsersTestCase):
+    """Verify the headers and structure of the generated message."""
 
     def test_recipient_address_combines_username_and_domain(self) -> None:
         """Verify the `To` field is constructed from the username and domain."""
@@ -118,6 +35,10 @@ class NotifyUsers(TestCase):
         self._call()
         message = self._sent_messages()[0]
         self.assertEqual("multipart/alternative", message.get_content_type())
+
+
+class MessageBody(NotifyUsersTestCase):
+    """Verify the job metadata rendered into the message body."""
 
     def test_plain_body_contains_job_metadata(self) -> None:
         """Verify the plain-text part contains the job ID, name, partition, reason, and submit time."""
@@ -173,6 +94,10 @@ class NotifyUsers(TestCase):
         self._call(threshold=14)
         body = _get_html_body(self._sent_messages()[0])
         self.assertIn("14 days", body)
+
+
+class BodyEscaping(NotifyUsersTestCase):
+    """Verify user controlled values are escaped before reaching the message body."""
 
     def test_html_body_escapes_job_name(self) -> None:
         """Verify markup in a job name is escaped in the HTML part."""
@@ -232,6 +157,10 @@ class NotifyUsers(TestCase):
 
         self.assertIn(MARKUP_JOB_NAME, body, "The plain-text part should show the name the user chose")
 
+
+class SmtpDelivery(NotifyUsersTestCase):
+    """Verify how messages are handed to the SMTP server."""
+
     def test_smtp_connected_with_host_and_port(self) -> None:
         """Verify the SMTP client is opened with the provided host and port."""
 
@@ -259,6 +188,10 @@ class NotifyUsers(TestCase):
 
         self._call(jobs=[])
         self.mock_smtp_instance.send_message.assert_not_called()
+
+
+class RecipientGrouping(NotifyUsersTestCase):
+    """Verify how canceled jobs are grouped into messages per recipient."""
 
     def test_one_email_per_user(self) -> None:
         """Verify one email is sent per distinct username, regardless of job count."""

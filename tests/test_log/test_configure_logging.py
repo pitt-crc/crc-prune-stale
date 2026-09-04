@@ -1,4 +1,4 @@
-"""Unit tests for the `log` module."""
+"""Unit tests for the `configure_logging` function."""
 
 import logging
 from pathlib import Path
@@ -8,11 +8,11 @@ from unittest import TestCase
 from crc_prune_stale.log import configure_logging
 
 
-class ConfigureLogging(TestCase):
-    """Verify `configure_logging` initialises the root logger correctly."""
+class LoggingTestCase(TestCase):
+    """Base class providing a root logger writing to a temporary directory."""
 
     def setUp(self) -> None:
-        """Instantiate a parser instance."""
+        """Create test fixtures using mock data."""
 
         self.log_dir = TemporaryDirectory()
 
@@ -32,6 +32,10 @@ class ConfigureLogging(TestCase):
         root = logging.getLogger()
         root.handlers.clear()
 
+
+class HandlerConfiguration(LoggingTestCase):
+    """Verify the handlers and level applied to the root logger."""
+
     def test_root_logger_level_is_debug(self) -> None:
         """Verify the root logger level is set to `DEBUG`."""
 
@@ -48,6 +52,10 @@ class ConfigureLogging(TestCase):
 
         handler_types = [type(h) for h in logging.getLogger().handlers]
         self.assertIn(logging.FileHandler, handler_types)
+
+
+class InaccessibleLogFile(LoggingTestCase):
+    """Verify behavior when the log file cannot be opened."""
 
     def test_warns_on_inaccessible_log_directory(self) -> None:
         """Verify a warning is logged when the log directory does not exist."""

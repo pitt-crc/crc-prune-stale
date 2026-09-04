@@ -1,4 +1,4 @@
-"""Tests for the `shell` module."""
+"""Unit tests for the `run_subprocess` function."""
 
 import subprocess
 from unittest import TestCase
@@ -6,8 +6,8 @@ from unittest import TestCase
 from crc_prune_stale.shell import run_subprocess
 
 
-class RunSubprocess(TestCase):
-    """Verify subprocess invocation and error handling via `run_subprocess`."""
+class SuccessfulCommand(TestCase):
+    """Verify the return value of a command that exits successfully."""
 
     def test_returns_completed_process_for_valid_command(self) -> None:
         """Verify a successful command returns a `CompletedProcess` with captured output."""
@@ -16,6 +16,10 @@ class RunSubprocess(TestCase):
         self.assertIsInstance(result, subprocess.CompletedProcess)
         self.assertEqual(0, result.returncode)
         self.assertEqual("hello", result.stdout.strip())
+
+
+class ErrorHandling(TestCase):
+    """Verify the exceptions raised when a command cannot be run successfully."""
 
     def test_raises_called_process_error_on_nonzero_exit(self) -> None:
         """Verify a command that exits with a nonzero status raises `CalledProcessError`."""
