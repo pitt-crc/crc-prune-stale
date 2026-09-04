@@ -12,7 +12,7 @@ from .slurm import JobRecord
 
 __all__ = ("notify_users",)
 
-_TABLE_COLUMNS = ("Job ID", "Job Name", "Partition", "Submitted (UTC)")
+_TABLE_COLUMNS = ("Job ID", "Job Name", "Partition", "Pending Reason", "Submitted (UTC)")
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,13 @@ def _build_email_body(username: str, jobs: list[JobRecord], threshold: int) -> s
     for i, job in enumerate(jobs):
         row_bg = "#f9f9f9" if i % 2 == 0 else "#ffffff"
 
-        # Job names and partitions are user controlled and must not be
-        # interpolated into the message body as markup
+        # Job names, partitions, and pending reasons are user influenced and
+        # must not be interpolated into the message body as markup
         cells = (
             html.escape(job.job_id),
             html.escape(job.job_name),
             html.escape(job.partition),
+            html.escape(job.reason),
             job.submit_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
 
