@@ -120,24 +120,45 @@ class NotifyUsers(TestCase):
         self.assertEqual("multipart/alternative", message.get_content_type())
 
     def test_plain_body_contains_job_metadata(self) -> None:
-        """Verify the plain-text part contains the job ID, name, partition, and submit time."""
+        """Verify the plain-text part contains the job ID, name, partition, reason, and submit time."""
 
         self._call()
         body = _get_plain_body(self._sent_messages()[0])
         self.assertIn("12345", body)
         self.assertIn("my_job", body)
         self.assertIn("gpu", body)
+        self.assertIn("Resources", body)
         self.assertIn("2024-01-01 12:00:00", body)
 
     def test_html_body_contains_job_metadata(self) -> None:
-        """Verify the HTML part contains the job ID, name, partition, and submit time."""
+        """Verify the HTML part contains the job ID, name, partition, reason, and submit time."""
 
         self._call()
         body = _get_html_body(self._sent_messages()[0])
         self.assertIn("12345", body)
         self.assertIn("my_job", body)
         self.assertIn("gpu", body)
+        self.assertIn("Resources", body)
         self.assertIn("2024-01-01 12:00:00", body)
+
+    def test_html_body_contains_pending_reason_column(self) -> None:
+        """Verify the table includes a column header for the pending reason."""
+
+        self._call()
+        self.assertIn("Pending Reason", _get_html_body(self._sent_messages()[0]))
+
+    def test_html_body_contains_reason_per_job(self) -> None:
+        """Verify each job in a multi job message lists its own pending reason."""
+
+        jobs = [
+            _make_job(job_id="111", job_name="train", reason="Resources"),
+            _make_job(job_id="222", job_name="eval", reason="QOSMaxJobsPerUserLimit"),
+        ]
+        self._call(jobs=jobs)
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertIn("Resources", body)
+        self.assertIn("QOSMaxJobsPerUserLimit", body)
 
     def test_plain_body_contains_threshold(self) -> None:
         """Verify the plain-text part references the configured threshold."""
@@ -186,6 +207,14 @@ class NotifyUsers(TestCase):
 
         self.assertNotIn("alice<b>", body, "A username must not be interpolated as markup")
         self.assertIn("alice&lt;b&gt;", body)
+
+    def test_html_body_escapes_pending_reason(self) -> None:
+        """Verify markup in a pending reason is escaped in the HTML part."""
+
+        self._call(jobs=[_make_job(reason=MARKUP_JOB_NAME)])
+        body = _get_html_body(self._sent_messages()[0])
+
+        self.assertNotIn(MARKUP_JOB_NAME, body, "A pending reason must not be interpolated as markup")
 
     def test_html_body_escapes_ampersand_in_job_name(self) -> None:
         """Verify an ampersand in a job name is escaped rather than read as a character reference."""
