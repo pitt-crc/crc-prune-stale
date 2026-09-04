@@ -19,6 +19,13 @@ __all__ = (
 SLURM_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 CLUSTER_CONFIG_KEY = "ClusterName"
 
+# Fields requested from `squeue`, in the order they are parsed
+SQUEUE_FORMAT = "%i|%u|%V|%j|%P|%T|%r"
+SQUEUE_FIELD_COUNT = 7
+
+# Label used in log records when a cancellation defers to the local node
+LOCAL_CLUSTER_LABEL = "local"
+
 # Slurm client commands log failures to stderr as `<command>: error: <message>`
 SLURM_ERROR_PATTERN = re.compile(
     r"^\s*(?:\S+:\s*)?(?:error|fatal):\s*(?P<message>.+?)\s*$", re.MULTILINE
@@ -42,6 +49,25 @@ class JobRecord:
     job_name: str
     partition: str
     state: str
+    reason: str
+
+
+def _describe_job(job: JobRecord, cluster: str | None) -> str:
+    """Return a summary of the metadata identifying a job in log records.
+
+    Args:
+        job: The job to describe.
+        cluster: The name of the cluster the job was targeted on.
+
+    Returns:
+        description: A summary of the job and the scope it was targeted in.
+    """
+
+    return (
+        f"job {job.job_id} submitted by {job.username} "
+        f"(cluster={cluster or LOCAL_CLUSTER_LABEL}, partition={job.partition}, "
+        f"name={job.job_name!r}, reason={job.reason!r})"
+    )
 
 
 def normalize_job_id(job_id: str) -> str:
@@ -95,7 +121,7 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
         "squeue",
         "--state=PENDING",
         "--noheader",
-        "--format=%i|%u|%V|%j|%P|%T",
+        f"--format={SQUEUE_FORMAT}",
     ]
 
     if cluster:
@@ -113,11 +139,11 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
             continue
 
         parts = line.split("|")
-        if len(parts) != 6:
+        if len(parts) != SQUEUE_FIELD_COUNT:
             logger.warning("Skipping malformed squeue output line: %r", line)
             continue
 
-        job_id, username, submit_time_str, job_name, partition, state = parts
+        job_id, username, submit_time_str, job_name, partition, state, reason = parts
         try:
             # Slurm renders submit times in the local time of the node, so the
             # parsed value is localized before being normalized to UTC
@@ -140,6 +166,7 @@ def fetch_pending_jobs(cluster: str | None = None, partitions: list[str] | None 
             job_name=job_name.strip(),
             partition=partition.strip(),
             state=state.strip(),
+            reason=reason.strip(),
         ))
 
     return jobs
@@ -160,9 +187,8 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
     if dry_run:
         age = datetime.now(tz=timezone.utc) - job.submit_time
         logger.info(
-            "Dry run — would cancel job %s submitted by %s on %s (age: %d days).",
-            job.job_id,
-            job.username,
+            "Dry run — would cancel %s on %s (age: %d days).",
+            _describe_job(job, cluster),
             job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
             age.days,
         )
@@ -176,7 +202,8 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
     try:
         slurm_cmd = run_subprocess(scancel_args)
 
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError) as exc:
+        logger.error("Could not cancel %s: %s", _describe_job(job, cluster), exc)
         return False
 
     # A zero exit status does not imply the job was canceled, so the stderr
@@ -184,21 +211,17 @@ def cancel_job(job: JobRecord, *, cluster: str | None = None, dry_run: bool = Fa
     error = SLURM_ERROR_PATTERN.search(slurm_cmd.stderr)
     if error:
         logger.error(
-            "Could not cancel job %s submitted by %s: %s",
-            job.job_id,
-            job.username,
+            "Could not cancel %s: %s",
+            _describe_job(job, cluster),
             error.group("message"),
         )
 
         return False
 
     logger.info(
-        "Cancelled job %s submitted by %s on %s (name=%r, partition=%r).",
-        job.job_id,
-        job.username,
+        "Cancelled %s on %s.",
+        _describe_job(job, cluster),
         job.submit_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
-        job.job_name,
-        job.partition,
     )
 
     return True

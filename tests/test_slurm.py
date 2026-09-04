@@ -14,8 +14,10 @@ from crc_prune_stale.slurm import (
     fetch_cluster_name,
     fetch_pending_jobs,
     JobRecord,
+    LOCAL_CLUSTER_LABEL,
     normalize_job_id,
     SLURM_TIME_FORMAT,
+    SQUEUE_FORMAT,
 )
 
 # Logger name targeted when asserting against emitted log records
@@ -26,7 +28,7 @@ SLURM_LOGGER = "crc_prune_stale.slurm"
 NODE_TIMEZONE = "America/New_York"
 
 # Mock stdout streams returned by `squeue` and `scontrol`
-PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
+PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING|Resources\n"
 CLUSTER_BANNER = "CLUSTER: htc\n"
 SCONTROL_OUTPUT = (
     "Configuration data as of 2024-01-01T12:00:00\n"
@@ -215,7 +217,7 @@ class FetchPendingJobs(TestCase):
         """
 
         self.mock_run.return_value = _make_result(
-            f"12345|testuser|{submit_time_str}|my_job|gpu|PENDING\n"
+            f"12345|testuser|{submit_time_str}|my_job|gpu|PENDING|Resources\n"
         )
 
         return fetch_pending_jobs()[0].submit_time
@@ -320,13 +322,41 @@ class FetchPendingJobs(TestCase):
         self.assertEqual("my_job", job.job_name)
         self.assertEqual("gpu", job.partition)
         self.assertEqual("PENDING", job.state)
+        self.assertEqual("Resources", job.reason)
+
+    def test_pending_reason_is_requested(self) -> None:
+        """Verify the pending reason is included in the requested output format."""
+
+        self.mock_run.return_value = _make_result("")
+        fetch_pending_jobs()
+
+        args = self.mock_run.call_args[0][0]
+        self.assertIn(f"--format={SQUEUE_FORMAT}", args)
+
+    def test_multi_word_pending_reason_is_parsed(self) -> None:
+        """Verify a pending reason containing spaces is preserved in full."""
+
+        self.mock_run.return_value = _make_result(
+            "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING|QOSMaxJobsPerUserLimit\n"
+        )
+
+        self.assertEqual("QOSMaxJobsPerUserLimit", fetch_pending_jobs()[0].reason)
+
+    def test_skips_lines_missing_pending_reason(self) -> None:
+        """Verify a line without a pending reason field is skipped as malformed."""
+
+        self.mock_run.return_value = _make_result(
+            "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
+        )
+
+        self.assertEqual([], fetch_pending_jobs())
 
     def test_parses_multiple_jobs(self) -> None:
         """Verify multiple output lines are each parsed into a `JobRecord`."""
 
         self.mock_run.return_value = _make_result(
-            "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
-            "67890|otheruser|2024-02-01T08:00:00|other_job|cpu|PENDING\n"
+            "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING|Resources\n"
+            "67890|otheruser|2024-02-01T08:00:00|other_job|cpu|PENDING|Priority\n"
         )
 
         self.assertEqual(2, len(fetch_pending_jobs()))
@@ -367,7 +397,7 @@ class FetchPendingJobs(TestCase):
         """Verify lines with an invalid submit time are skipped."""
 
         self.mock_run.return_value = _make_result(
-            "12345|testuser|not-a-date|my_job|gpu|PENDING\n"
+            "12345|testuser|not-a-date|my_job|gpu|PENDING|Resources\n"
         )
 
         self.assertEqual([], fetch_pending_jobs())
@@ -376,7 +406,7 @@ class FetchPendingJobs(TestCase):
         """Verify leading and trailing whitespace is stripped from each field."""
 
         self.mock_run.return_value = _make_result(
-            " 12345 | testuser | 2024-01-01T12:00:00 | my_job | gpu | PENDING \n"
+            " 12345 | testuser | 2024-01-01T12:00:00 | my_job | gpu | PENDING | Resources \n"
         )
 
         job = fetch_pending_jobs()[0]
@@ -434,6 +464,7 @@ class CancelJob(TestCase):
             job_name="my_job",
             partition="gpu",
             state="PENDING",
+            reason="Resources",
         )
 
         self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
