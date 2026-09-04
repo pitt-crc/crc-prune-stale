@@ -1,16 +1,29 @@
 """Tests for the `slurm` module."""
 
 import logging
+import os
 import subprocess
+import time
 from dataclasses import replace
 from datetime import datetime, timezone
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from crc_prune_stale.slurm import cancel_job, fetch_cluster_name, fetch_pending_jobs, JobRecord, normalize_job_id
+from crc_prune_stale.slurm import (
+    cancel_job,
+    fetch_cluster_name,
+    fetch_pending_jobs,
+    JobRecord,
+    normalize_job_id,
+    SLURM_TIME_FORMAT,
+)
 
 # Logger name targeted when asserting against emitted log records
 SLURM_LOGGER = "crc_prune_stale.slurm"
+
+# Local timezone applied when parsing mock `squeue` output. A zone with a
+# non-zero, seasonally varying offset keeps UTC conversion errors visible
+NODE_TIMEZONE = "America/New_York"
 
 # Mock stdout streams returned by `squeue` and `scontrol`
 PENDING_LINE = "12345|testuser|2024-01-01T12:00:00|my_job|gpu|PENDING\n"
@@ -163,6 +176,9 @@ class FetchPendingJobs(TestCase):
     def setUp(self) -> None:
         """Create test fixtures using mock data."""
 
+        self.original_tz = os.environ.get("TZ")
+        self._apply_timezone(NODE_TIMEZONE)
+
         self.subprocess_patch = patch("crc_prune_stale.slurm.run_subprocess")
         self.mock_run = self.subprocess_patch.start()
 
@@ -170,6 +186,39 @@ class FetchPendingJobs(TestCase):
         """Close any open server connections."""
 
         self.subprocess_patch.stop()
+        self._apply_timezone(self.original_tz)
+
+    @staticmethod
+    def _apply_timezone(name: str | None) -> None:
+        """Set the local timezone of the running process.
+
+        Args:
+            name: The timezone name to apply, or `None` to restore the system default.
+        """
+
+        if name is None:
+            os.environ.pop("TZ", None)
+
+        else:
+            os.environ["TZ"] = name
+
+        time.tzset()
+
+    def _fetch_submit_time(self, submit_time_str: str) -> datetime:
+        """Return the parsed submit time of a single mock squeue record.
+
+        Args:
+            submit_time_str: The submit time as rendered by `squeue`.
+
+        Returns:
+            submit_time: The submit time parsed from the mock output.
+        """
+
+        self.mock_run.return_value = _make_result(
+            f"12345|testuser|{submit_time_str}|my_job|gpu|PENDING\n"
+        )
+
+        return fetch_pending_jobs()[0].submit_time
 
     def test_squeue_called_with_correct_arguments(self) -> None:
         """Verify `squeue` is invoked with the expected command-line flags."""
@@ -267,7 +316,7 @@ class FetchPendingJobs(TestCase):
         job = fetch_pending_jobs()[0]
         self.assertEqual("12345", job.job_id)
         self.assertEqual("testuser", job.username)
-        self.assertEqual(datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc), job.submit_time)
+        self.assertEqual(datetime(2024, 1, 1, 17, 0, 0, tzinfo=timezone.utc), job.submit_time)
         self.assertEqual("my_job", job.job_name)
         self.assertEqual("gpu", job.partition)
         self.assertEqual("PENDING", job.state)
@@ -335,6 +384,41 @@ class FetchPendingJobs(TestCase):
         self.assertEqual("testuser", job.username)
         self.assertEqual("gpu", job.partition)
         self.assertEqual("PENDING", job.state)
+
+    def test_standard_time_submit_time_is_converted(self) -> None:
+        """Verify a submit time outside daylight saving time is offset by five hours."""
+
+        self.assertEqual(
+            datetime(2024, 1, 1, 17, 0, 0, tzinfo=timezone.utc),
+            self._fetch_submit_time("2024-01-01T12:00:00"),
+            "Submit times are reported in the local time of the node, not UTC",
+        )
+
+    def test_daylight_time_submit_time_is_converted(self) -> None:
+        """Verify a submit time within daylight saving time is offset by four hours."""
+
+        self.assertEqual(
+            datetime(2024, 7, 1, 16, 0, 0, tzinfo=timezone.utc),
+            self._fetch_submit_time("2024-07-01T12:00:00"),
+            "The offset must follow daylight saving time rather than being fixed",
+        )
+
+    def test_submit_time_is_timezone_aware(self) -> None:
+        """Verify the parsed submit time carries an explicit timezone."""
+
+        self.assertIsNotNone(self._fetch_submit_time("2024-01-01T12:00:00").tzinfo)
+
+    def test_recent_submit_time_is_not_aged(self) -> None:
+        """Verify a job submitted moments ago is not aged by the local time offset."""
+
+        submitted = datetime.now().replace(microsecond=0)
+        age = datetime.now(tz=timezone.utc) - self._fetch_submit_time(
+            submitted.strftime(SLURM_TIME_FORMAT)
+        )
+
+        self.assertLess(
+            abs(age.total_seconds()), 60, "A job submitted moments ago should register a near zero age"
+        )
 
 
 class CancelJob(TestCase):
